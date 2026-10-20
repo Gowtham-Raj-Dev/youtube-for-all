@@ -52,7 +52,8 @@ function NotConfigured() {
       <div className="max-w-md">
         <h1 className="text-xl font-bold">Firebase is not configured</h1>
         <p className="mt-2 text-muted">
-          Put your Firebase web config in <code>src/config.ts</code> and rebuild.
+          Set the <code>VITE_FIREBASE_*</code> values in <code>.env.local</code> (or the GitHub Actions
+          secrets) and rebuild.
         </p>
       </div>
     </div>

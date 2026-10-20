@@ -156,19 +156,19 @@ export default function Guide() {
           </Step>
           <Step n={2} title="Allow Google Drive" done={yt.driveAllowed}>
             <p>
-              <Link to="/settings#autopilot" className="font-medium text-accent hover:underline">Settings → Autopilot</Link> → <b>Allow Google Drive</b>. TubeFlow can only see files it creates.
+              <Link to="/settings#autopilot" className="font-medium text-accent hover:underline">Settings → Autopilot</Link> → <b>Allow Google Drive</b>. UTubeFlow can only see files it creates.
             </p>
           </Step>
           <Step n={3} title="Create Autopilot" done={!!autopilot.config}>
             <p>
-              Click <b>Create Autopilot</b>. The app makes a private folder, a queue sheet and the Autopilot script in your account. You never need to open them — everything is managed from TubeFlow.
+              Click <b>Create Autopilot</b>. The app makes a private folder, a queue sheet and the Autopilot script in your account. You never need to open them — everything is managed from UTubeFlow.
             </p>
           </Step>
           <Step n={4} title="Activate" done={autopilot.running}>
             <p>Click <b>Activate Autopilot</b>. In the Google tab that opens:</p>
             <ul className="list-disc space-y-1 pl-5">
               <li><b>Review permissions</b> → pick your account.</li>
-              <li><b>“Google hasn't verified this app”</b> → <b>Advanced</b> → <b>Go to TubeFlow Autopilot (unsafe)</b>. It's your own script.</li>
+              <li><b>“Google hasn't verified this app”</b> → <b>Advanced</b> → <b>Go to UTubeFlow Autopilot (unsafe)</b>. It's your own script.</li>
               <li><b>Allow</b>. You'll see <b>“Autopilot is ON”</b> with green ticks.</li>
             </ul>
           </Step>

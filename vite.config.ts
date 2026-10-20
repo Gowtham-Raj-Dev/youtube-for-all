@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
-// Served from the root of https://youtube.codelove.in (GitHub Pages custom domain), so base stays "/".
+// Served from the root of https://utubeflow.codelove.in (GitHub Pages custom domain), so base stays "/".
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   base: "/",

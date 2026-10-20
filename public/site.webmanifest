@@ -1,6 +1,6 @@
 {
-  "name": "TubeFlow by CodeLove",
-  "short_name": "TubeFlow",
+  "name": "UTubeFlow by CodeLove",
+  "short_name": "UTubeFlow",
   "description": "Free YouTube automation — bulk upload, schedule and Autopilot for videos and Shorts.",
   "start_url": "/dashboard",
   "scope": "/",

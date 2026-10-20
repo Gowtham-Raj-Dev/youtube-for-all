@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { ArrowUpRight, Box, Download, Film, Gamepad2, Heart, Images, Link2, Menu, X } from "lucide-react";
+import { ArrowUpRight, Box, Download, Film, Gamepad2, Images, Link2, Menu, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { Logo, ThemeToggle } from "./Layout";
 import { Button, cx } from "./ui";
@@ -19,19 +19,20 @@ export const PLATFORMS = [
 export function CodeLoveLogo({ className }: { className?: string }) {
   return (
     <a href={CODELOVE} target="_blank" rel="noreferrer" className={cx("inline-block", className)} aria-label="CodeLove — codelove.in">
-      <img src="/brand/codelove-footer-on-dark.png" alt="codelove.in — Web | Apps | Games | More" className="only-dark h-full w-auto" />
-      <img src="/brand/codelove-footer-on-light.png" alt="codelove.in — Web | Apps | Games | More" className="only-light h-full w-auto" />
+      <img src="/brand/codelove-footer-on-dark.png" alt="codelove.in" className="only-dark h-full w-auto" />
+      <img src="/brand/codelove-footer-on-light.png" alt="codelove.in" className="only-light h-full w-auto" />
     </a>
   );
 }
 
 const NAV = [
-  ["Features", "#features"],
-  ["How it works", "#how"],
-  ["Autopilot", "#autopilot"],
-  ["FAQ", "#faq"],
+  ["Features", "/#features"],
+  ["How it works", "/#how"],
+  ["Autopilot", "/#autopilot"],
+  ["FAQ", "/#faq"],
 ];
 
+/** Fixed, glassy top bar for the public pages. Pages add `pt-16` (its height) themselves. */
 export function SiteHeader() {
   const { user } = useAuth();
   const [scrolled, setScrolled] = useState(false);
@@ -43,39 +44,40 @@ export function SiteHeader() {
     return () => window.removeEventListener("scroll", on);
   }, []);
 
-  const cta = user ? (
-    <Link to="/dashboard"><Button variant="primary" size="sm">Open dashboard</Button></Link>
-  ) : (
-    <>
-      <Link to="/login" className="hidden sm:block"><Button variant="ghost" size="sm">Sign in</Button></Link>
-      <Link to="/login"><Button variant="primary" size="sm">Get started free</Button></Link>
-    </>
-  );
-
   return (
-    <header className={cx("sticky top-0 z-40 transition", scrolled ? "border-b border-line bg-bg/80 backdrop-blur-lg" : "border-b border-transparent")}>
+    <header className={cx("fixed inset-x-0 top-0 z-50 transition-all duration-300", scrolled || open ? "glass border-b border-line shadow-lg shadow-black/5" : "border-b border-transparent")}>
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-        <Link to="/" className="flex items-center gap-2">
+        <Link to="/" className="shrink-0">
           <Logo />
-          <span className="hidden rounded-full border border-line px-2 py-0.5 text-[10px] font-medium text-muted sm:inline">by CodeLove</span>
         </Link>
-        <nav className="hidden items-center gap-1 md:flex">
+        <nav className="hidden items-center gap-1 rounded-full border border-line bg-card/60 p-1 md:flex">
           {NAV.map(([label, href]) => (
-            <a key={href} href={href} className="rounded-lg px-3 py-2 text-sm text-muted transition hover:text-fg">{label}</a>
+            <a key={href} href={href} className="rounded-full px-4 py-1.5 text-sm text-muted transition hover:bg-card-hover hover:text-fg">
+              {label}
+            </a>
           ))}
         </nav>
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          {cta}
+          {user ? (
+            <Link to="/dashboard"><Button variant="primary" size="sm">Dashboard</Button></Link>
+          ) : (
+            <>
+              <Link to="/login" className="hidden sm:block"><Button variant="ghost" size="sm">Sign in</Button></Link>
+              <Link to="/login"><Button variant="primary" size="sm">Start free</Button></Link>
+            </>
+          )}
           <button onClick={() => setOpen(!open)} className="grid size-9 place-items-center rounded-xl text-muted md:hidden" aria-label="Menu">
             {open ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
         </div>
       </div>
       {open && (
-        <nav className="border-t border-line bg-bg px-4 py-2 md:hidden">
+        <nav className="border-t border-line px-4 py-2 md:hidden">
           {NAV.map(([label, href]) => (
-            <a key={href} href={href} onClick={() => setOpen(false)} className="block rounded-lg px-2 py-3 text-sm text-muted hover:text-fg">{label}</a>
+            <a key={href} href={href} onClick={() => setOpen(false)} className="block rounded-lg px-2 py-3 text-sm text-muted hover:text-fg">
+              {label}
+            </a>
           ))}
         </nav>
       )}
@@ -86,51 +88,42 @@ export function SiteHeader() {
 export function SiteFooter() {
   const year = new Date().getFullYear();
   return (
-    <footer className="border-t border-line bg-bg-soft/50">
-      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
-        <div className="grid gap-12 lg:grid-cols-[1.4fr_1fr]">
+    <footer className="border-t border-line bg-bg-soft/60">
+      <div className="mx-auto max-w-6xl px-4 pt-14 pb-8 sm:px-6">
+        <div className="grid gap-10 lg:grid-cols-[1.3fr_1fr_1fr]">
           <div>
-            <CodeLoveLogo className="h-11" />
-            <p className="mt-5 max-w-md text-sm leading-relaxed text-muted">
-              TubeFlow is a free tool from <b className="text-fg">CodeLove</b> — we build free web apps, tools and games for creators and developers.
+            <Logo />
+            <p className="mt-4 max-w-sm text-sm leading-relaxed text-muted">
+              Free YouTube automation for every creator. Bulk upload, schedule and let Autopilot post on time — from your own Google account.
             </p>
-            <a href={CODELOVE} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">
-              Visit codelove.in <ArrowUpRight className="size-4" />
-            </a>
           </div>
-
-          <div className="grid grid-cols-2 gap-10">
-            <div>
-              <h3 className="text-xs font-semibold tracking-wider text-faint uppercase">TubeFlow</h3>
-              <ul className="mt-4 space-y-2.5 text-sm">
-                <li><a href="/#features" className="text-muted hover:text-fg">Features</a></li>
-                <li><a href="/#autopilot" className="text-muted hover:text-fg">Autopilot</a></li>
-                <li><a href="/#faq" className="text-muted hover:text-fg">FAQ</a></li>
-                <li><Link to="/login" className="text-muted hover:text-fg">Sign in</Link></li>
-                <li><Link to="/privacy" className="text-muted hover:text-fg">Privacy</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-xs font-semibold tracking-wider text-faint uppercase">Company</h3>
-              <ul className="mt-4 space-y-2.5 text-sm">
-                <li><a href={`${CODELOVE}/about`} target="_blank" rel="noreferrer" className="text-muted hover:text-fg">About</a></li>
-                <li><a href={`${CODELOVE}/blog`} target="_blank" rel="noreferrer" className="text-muted hover:text-fg">Blog</a></li>
-                <li><a href={`${CODELOVE}/learn`} target="_blank" rel="noreferrer" className="text-muted hover:text-fg">Learn</a></li>
-                <li><a href={`${CODELOVE}/contact`} target="_blank" rel="noreferrer" className="text-muted hover:text-fg">Contact</a></li>
-                <li><a href={`${CODELOVE}/legal/terms`} target="_blank" rel="noreferrer" className="text-muted hover:text-fg">Terms</a></li>
-              </ul>
-            </div>
+          <div>
+            <h3 className="text-xs font-semibold tracking-wider text-faint uppercase">Product</h3>
+            <ul className="mt-4 space-y-2.5 text-sm">
+              <li><a href="/#features" className="text-muted hover:text-fg">Features</a></li>
+              <li><a href="/#autopilot" className="text-muted hover:text-fg">Autopilot</a></li>
+              <li><a href="/#faq" className="text-muted hover:text-fg">FAQ</a></li>
+              <li><Link to="/login" className="text-muted hover:text-fg">Sign in</Link></li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-xs font-semibold tracking-wider text-faint uppercase">Legal & help</h3>
+            <ul className="mt-4 space-y-2.5 text-sm">
+              <li><Link to="/privacy" className="text-muted hover:text-fg">Privacy</Link></li>
+              <li><a href={`${CODELOVE}/legal/terms`} target="_blank" rel="noreferrer" className="text-muted hover:text-fg">Terms</a></li>
+              <li><a href={`${CODELOVE}/contact`} target="_blank" rel="noreferrer" className="text-muted hover:text-fg">Contact</a></li>
+            </ul>
           </div>
         </div>
 
-        <div className="mt-14">
-          <h3 className="text-xs font-semibold tracking-wider text-faint uppercase">More free platforms from CodeLove</h3>
-          <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-12">
+          <h3 className="text-xs font-semibold tracking-wider text-faint uppercase">More free platforms</h3>
+          <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {PLATFORMS.map(({ name, text, href, icon: Icon }) => (
               <li key={name}>
-                <a href={href} target="_blank" rel="noreferrer" className="group flex items-center gap-3 rounded-xl border border-line bg-card p-3.5 transition hover:-translate-y-0.5 hover:border-accent/40">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent">
-                    <Icon className="size-5" />
+                <a href={href} target="_blank" rel="noreferrer" className="group flex items-center gap-3 rounded-xl border border-line bg-card p-3 transition hover:-translate-y-0.5 hover:border-accent/40">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent">
+                    <Icon className="size-4.5" />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold">{name}</span>
@@ -143,10 +136,10 @@ export function SiteFooter() {
           </ul>
         </div>
 
-        <div className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-line pt-6 text-xs text-faint sm:flex-row">
-          <span>© {year} CodeLove. All rights reserved.</span>
-          <span className="flex items-center gap-1">
-            Made with <Heart className="size-3.5 fill-accent text-accent" /> in India · Not affiliated with YouTube or Google
+        <div className="mt-12 flex flex-col-reverse items-center justify-between gap-4 border-t border-line pt-6 sm:flex-row">
+          <span className="text-xs text-faint">© {year} UTubeFlow · Not affiliated with YouTube or Google</span>
+          <span className="flex items-center gap-2.5 text-xs text-faint">
+            A product of <CodeLoveLogo className="h-7" />
           </span>
         </div>
       </div>

@@ -70,12 +70,12 @@ export async function setupAutopilot(
   }
   if (!c.folderId) {
     onStep("Creating your Drive folder…");
-    c.folderId = await createFolder(token, "TubeFlow Autopilot");
+    c.folderId = await createFolder(token, "UTubeFlow Autopilot");
     await save(c);
   }
   if (!c.sheetId) {
     onStep("Creating the queue sheet…");
-    c.sheetId = await createSpreadsheet(token, c.folderId, "TubeFlow Autopilot data — managed by the app, do not edit");
+    c.sheetId = await createSpreadsheet(token, c.folderId, "UTubeFlow Autopilot data — managed by the app, do not edit");
     await sheetBatchUpdate(token, c.sheetId, [
       { updateSheetProperties: { properties: { sheetId: QUEUE_GID, title: "queue", gridProperties: { frozenRowCount: 1 } }, fields: "title,gridProperties.frozenRowCount" } },
       { addSheet: { properties: { title: "status" } } },
@@ -85,7 +85,7 @@ export async function setupAutopilot(
   }
   if (!c.scriptId) {
     onStep("Installing the Autopilot script…");
-    c.scriptId = await createScriptProject(token, "TubeFlow Autopilot", c.sheetId);
+    c.scriptId = await createScriptProject(token, "UTubeFlow Autopilot", c.sheetId);
     await save(c);
   }
   onStep("Deploying…");
@@ -106,10 +106,10 @@ export async function deployScript(token: string, c: Pick<AutopilotConfig, "shee
     { name: "appsscript", type: "JSON", source: manifest },
     { name: "Code", type: "SERVER_JS", source: code },
   ]);
-  const v = await createScriptVersion(token, c.scriptId, `TubeFlow Autopilot v${SCRIPT_VERSION}`);
+  const v = await createScriptVersion(token, c.scriptId, `UTubeFlow Autopilot v${SCRIPT_VERSION}`);
   const d = c.deploymentId
-    ? await updateScriptDeployment(token, c.scriptId, c.deploymentId, v, `TubeFlow Autopilot v${SCRIPT_VERSION}`)
-    : await createScriptDeployment(token, c.scriptId, v, `TubeFlow Autopilot v${SCRIPT_VERSION}`);
+    ? await updateScriptDeployment(token, c.scriptId, c.deploymentId, v, `UTubeFlow Autopilot v${SCRIPT_VERSION}`)
+    : await createScriptDeployment(token, c.scriptId, v, `UTubeFlow Autopilot v${SCRIPT_VERSION}`);
   return { deploymentId: d.deploymentId, webAppUrl: d.url, version: SCRIPT_VERSION };
 }
 

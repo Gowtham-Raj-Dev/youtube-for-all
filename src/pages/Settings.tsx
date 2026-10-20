@@ -314,7 +314,7 @@ function AutopilotSection() {
           </Step>
 
           <Step n={2} title="Allow Google Drive" state={yt.driveAllowed ? "ok" : "todo"}>
-            <p className="text-sm text-muted">TubeFlow can only see the files it creates in your Drive — nothing else.</p>
+            <p className="text-sm text-muted">UTubeFlow can only see the files it creates in your Drive — nothing else.</p>
             {!yt.driveAllowed && (
               <Button variant="primary" loading={yt.connecting} onClick={allowDrive}>Allow Google Drive</Button>
             )}
@@ -345,7 +345,7 @@ function AutopilotSection() {
           <Step n={4} title="Activate Autopilot" state={running ? "ok" : "todo"}>
             <div className="text-sm text-muted">
               A Google tab opens. Click <b className="text-fg">Review permissions</b> → pick your account → <b className="text-fg">Advanced</b> →{" "}
-              <b className="text-fg">Go to TubeFlow Autopilot</b> → <b className="text-fg">Allow</b>. You'll see “Autopilot is ON”. Then come back and click Check.
+              <b className="text-fg">Go to UTubeFlow Autopilot</b> → <b className="text-fg">Allow</b>. You'll see “Autopilot is ON”. Then come back and click Check.
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant={running ? "secondary" : "primary"} disabled={!cfg} icon={<Play className="size-4" />} onClick={() => cfg && openWebApp(cfg, "setup")}>

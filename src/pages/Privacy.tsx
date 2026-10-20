@@ -3,7 +3,7 @@ import { SiteFooter, SiteHeader } from "../components/Site";
 
 export default function Privacy() {
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="flex min-h-dvh flex-col pt-16">
       <SiteHeader />
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-14 sm:px-6">
         <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Privacy</h1>

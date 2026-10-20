@@ -56,20 +56,22 @@ export default function Login() {
     <div className="flex h-dvh overflow-hidden">
       {/* Brand panel (large screens) */}
       <aside className="relative hidden w-[46%] max-w-2xl flex-col justify-between overflow-hidden bg-[#0d0d14] p-10 text-white lg:flex xl:p-14">
-        <div className="pointer-events-none absolute -top-32 -left-32 size-[30rem] rounded-full bg-[#ff4d5e]/25 blur-3xl" />
-        <div className="pointer-events-none absolute -right-40 -bottom-40 size-[30rem] rounded-full bg-[#c026d3]/25 blur-3xl" />
+        <div className="pointer-events-none absolute -top-32 -left-32 size-[30rem] rounded-full bg-[#ff3b5c]/25 blur-3xl" />
+        <div className="pointer-events-none absolute -right-40 -bottom-40 size-[30rem] rounded-full bg-[#7c3aed]/25 blur-3xl" />
         <Link to="/" className="relative flex items-center gap-2.5">
           <img src="/favicon.svg" alt="" className="size-9" />
-          <span className="text-lg font-bold">TubeFlow</span>
+          <span className="text-lg font-extrabold">
+            UTube<span className="bg-gradient-to-r from-[#ff3b5c] to-[#a78bfa] bg-clip-text text-transparent">Flow</span>
+          </span>
         </Link>
 
         <div className="relative">
           <h1 className="text-4xl leading-tight font-extrabold tracking-tight xl:text-5xl">
             Your channel,
             <br />
-            <span className="bg-gradient-to-r from-[#ff4d5e] to-[#c026d3] bg-clip-text text-transparent">on autopilot.</span>
+            <span className="bg-gradient-to-r from-[#ff3b5c] to-[#7c3aed] bg-clip-text text-transparent">on autopilot.</span>
           </h1>
-          <p className="mt-4 max-w-md text-white/65">Add your videos once. TubeFlow publishes them on time, every day — free.</p>
+          <p className="mt-4 max-w-md text-white/65">Add your videos once. UTubeFlow publishes them on time, every day — free.</p>
           <ul className="mt-8 space-y-3.5">
             {POINTS.map(({ icon: Icon, text }) => (
               <li key={text} className="flex items-center gap-3 text-sm text-white/85">
@@ -82,12 +84,7 @@ export default function Login() {
           </ul>
         </div>
 
-        <div className="relative flex items-center justify-between text-xs text-white/50">
-          <a href="https://codelove.in" target="_blank" rel="noreferrer" className="block h-8">
-            <img src="/brand/codelove-footer-on-dark.png" alt="codelove.in" className="h-full w-auto" />
-          </a>
-          <span>Free tool by CodeLove</span>
-        </div>
+        <p className="relative text-xs text-white/45">Free for every creator · Not affiliated with YouTube or Google</p>
       </aside>
 
       {/* Sign-in */}
@@ -132,10 +129,11 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="relative flex flex-wrap items-center justify-center gap-x-4 gap-y-1 px-5 py-4 text-xs text-faint">
-          <span>We store only your login and settings.</span>
+        <div className="relative flex items-center justify-between gap-4 px-5 py-4 text-xs text-faint sm:px-8">
           <Link to="/privacy" className="hover:text-fg">Privacy</Link>
-          <CodeLoveLogo className="h-6 lg:hidden" />
+          <span className="flex items-center gap-2">
+            A product of <CodeLoveLogo className="h-6" />
+          </span>
         </div>
       </main>
     </div>

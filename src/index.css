@@ -10,9 +10,9 @@
   --text: #ececf3;
   --muted: #9a9aad;
   --faint: #6b6b80;
-  --accent: #ff4d5e;
-  --accent-2: #c026d3;
-  --accent-soft: rgba(255, 77, 94, 0.12);
+  --accent: #ff3b5c;
+  --accent-2: #8b5cf6;
+  --accent-soft: rgba(255, 59, 92, 0.12);
   --ok: #22c55e;
   --warn: #f59e0b;
   --info: #3b82f6;
@@ -30,7 +30,7 @@
     --text: #15151d;
     --muted: #5e5e70;
     --faint: #8a8a9c;
-    --accent-soft: rgba(255, 77, 94, 0.1);
+    --accent-soft: rgba(255, 59, 92, 0.1);
     color-scheme: light;
   }
 }
@@ -44,7 +44,7 @@
   --text: #15151d;
   --muted: #5e5e70;
   --faint: #8a8a9c;
-  --accent-soft: rgba(255, 77, 94, 0.1);
+  --accent-soft: rgba(255, 59, 92, 0.1);
   color-scheme: light;
 }
 
@@ -113,4 +113,40 @@ select {
 
 ::selection {
   background: var(--accent-soft);
+}
+
+/* ---------- Motion ---------- */
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+@keyframes float-slow { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(8px) rotate(-2deg); } }
+@keyframes fade-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes shimmer { from { background-position: 0% 50%; } to { background-position: 200% 50%; } }
+@keyframes blob { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(40px, -30px) scale(1.1); } 66% { transform: translate(-30px, 20px) scale(.95); } }
+
+.animate-float { animation: float 6s ease-in-out infinite; }
+.animate-float-slow { animation: float-slow 7s ease-in-out infinite; }
+.animate-blob { animation: blob 18s ease-in-out infinite; }
+.fade-up { animation: fade-up .7s cubic-bezier(.2, .7, .2, 1) both; }
+
+.grad-text-anim {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent));
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 6s linear infinite;
+}
+
+/* Scroll reveal: elements start hidden and get .in when visible (see useReveal). */
+.reveal { opacity: 0; transform: translateY(24px); transition: opacity .7s ease, transform .7s cubic-bezier(.2, .7, .2, 1); }
+.reveal.in { opacity: 1; transform: none; }
+
+.glass {
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float, .animate-float-slow, .animate-blob, .grad-text-anim, .fade-up { animation: none; }
+  .reveal { opacity: 1; transform: none; transition: none; }
 }

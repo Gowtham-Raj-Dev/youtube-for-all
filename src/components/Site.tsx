@@ -15,7 +15,7 @@ export const PLATFORMS = [
   { name: "Video to GIF", text: "Turn any clip into a GIF", href: "https://videotogif.codelove.in", icon: Film },
   { name: "Video to Images", text: "Extract frames from videos", href: "https://videotoimages.codelove.in", icon: Images },
   { name: "Games", text: "Free games in your browser", href: "https://games.codelove.in", icon: Gamepad2 },
-  { name: "Java Games", text: "Old Java phone games, free in your browser", href: "https://javagames-emu.codelove.in", icon: Smartphone },
+  { name: "Java Games", text: "Old Java phone games, free in your browser", href: "https://javaplay.codelove.in", icon: Smartphone },
 ];
 
 export function CodeLoveLogo({ className }: { className?: string }) {

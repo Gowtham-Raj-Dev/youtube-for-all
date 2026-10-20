@@ -59,7 +59,7 @@ export default function Login() {
         <div className="pointer-events-none absolute -top-32 -left-32 size-[30rem] rounded-full bg-[#34d399]/20 blur-3xl" />
         <div className="pointer-events-none absolute -right-40 -bottom-40 size-[30rem] rounded-full bg-[#059669]/25 blur-3xl" />
         <Link to="/" className="relative flex items-center gap-2.5">
-          <img src="/favicon.svg" alt="" className="size-9" />
+          <img src="favicon.svg" alt="" className="size-9" />
           <span className="text-lg font-extrabold">
             UTube<span className="bg-gradient-to-r from-[#6ee7b7] to-[#34d399] bg-clip-text text-transparent">Flow</span>
           </span>

@@ -19,8 +19,8 @@ export const PLATFORMS = [
 export function CodeLoveLogo({ className }: { className?: string }) {
   return (
     <a href={CODELOVE} target="_blank" rel="noreferrer" className={cx("inline-block", className)} aria-label="CodeLove — codelove.in">
-      <img src="/brand/codelove-footer-on-dark.png" alt="codelove.in" className="only-dark h-full w-auto" />
-      <img src="/brand/codelove-footer-on-light.png" alt="codelove.in" className="only-light h-full w-auto" />
+      <img src="brand/codelove-footer-on-dark.png" alt="codelove.in" className="only-dark h-full w-auto" />
+      <img src="brand/codelove-footer-on-light.png" alt="codelove.in" className="only-light h-full w-auto" />
     </a>
   );
 }
@@ -60,9 +60,9 @@ export function SiteHeader() {
         </Link>
         <nav className="hidden items-center gap-1 rounded-full border border-line bg-card/60 p-1 md:flex">
           {NAV.map(([label, href]) => (
-            <a key={href} href={href} className="rounded-full px-4 py-1.5 text-sm text-muted transition hover:bg-card-hover hover:text-fg">
+            <Link key={href} to={href} className="rounded-full px-4 py-1.5 text-sm text-muted transition hover:bg-card-hover hover:text-fg">
               {label}
-            </a>
+            </Link>
           ))}
         </nav>
         <div className="flex items-center gap-2">
@@ -83,9 +83,9 @@ export function SiteHeader() {
       {open && (
         <nav className="border-t border-line px-4 py-2 md:hidden">
           {NAV.map(([label, href]) => (
-            <a key={href} href={href} onClick={() => setOpen(false)} className="block rounded-lg px-2 py-3 text-sm text-muted hover:text-fg">
+            <Link key={href} to={href} onClick={() => setOpen(false)} className="block rounded-lg px-2 py-3 text-sm text-muted hover:text-fg">
               {label}
-            </a>
+            </Link>
           ))}
         </nav>
       )}
@@ -108,9 +108,9 @@ export function SiteFooter() {
           <div>
             <h3 className="text-xs font-semibold tracking-wider text-faint uppercase">Product</h3>
             <ul className="mt-4 space-y-2.5 text-sm">
-              <li><a href="/#features" className="text-muted hover:text-fg">Features</a></li>
-              <li><a href="/#autopilot" className="text-muted hover:text-fg">Autopilot</a></li>
-              <li><a href="/#faq" className="text-muted hover:text-fg">FAQ</a></li>
+              <li><Link to="/#features" className="text-muted hover:text-fg">Features</Link></li>
+              <li><Link to="/#autopilot" className="text-muted hover:text-fg">Autopilot</Link></li>
+              <li><Link to="/#faq" className="text-muted hover:text-fg">FAQ</Link></li>
               <li><Link to="/login" className="text-muted hover:text-fg">Sign in</Link></li>
             </ul>
           </div>

@@ -2,10 +2,11 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
-// Served from the root of https://utubeflow.codelove.in (GitHub Pages custom domain), so base stays "/".
+// Relative base: index.html sets a <base href> at runtime, so one build works both at
+// https://utubeflow.codelove.in/ and at https://<user>.github.io/youtube-for-all/.
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: "/",
+  base: "./",
   build: {
     outDir: "dist",
     sourcemap: false,

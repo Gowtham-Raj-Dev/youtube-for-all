@@ -60,7 +60,7 @@ const MOBILE_TABS = ["/dashboard", "/upload/short", "/queue", "/schedule", "/set
 export function Logo({ className }: { className?: string }) {
   return (
     <div className={cx("flex items-center gap-2.5", className)}>
-      <img src="/favicon.svg" alt="" className="size-9 rounded-xl shadow-lg shadow-accent/30" />
+      <img src="favicon.svg" alt="" className="size-9 rounded-xl shadow-lg shadow-accent/30" />
       <span className="text-lg font-extrabold tracking-tight" aria-label={APP_NAME}>
         UTube<span className="grad-text">Flow</span>
       </span>
@@ -294,7 +294,7 @@ export default function Layout() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-10">
           <div className="flex min-w-0 items-center gap-3">
             <Link to="/dashboard" className="lg:hidden">
-              <img src="/favicon.svg" alt={APP_NAME} className="size-9 rounded-xl" />
+              <img src="favicon.svg" alt={APP_NAME} className="size-9 rounded-xl" />
             </Link>
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold lg:text-base">{current?.label ?? "UTubeFlow"}</div>

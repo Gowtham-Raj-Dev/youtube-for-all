@@ -499,8 +499,8 @@ function CreditsSection() {
             <span className="min-w-0 flex-1">
               <span className="mb-2 block text-xs text-muted">A product of</span>
               <span className="block h-9">
-                <img src="/brand/codelove-footer-on-dark.png" alt="codelove.in" className="only-dark h-full w-auto" />
-                <img src="/brand/codelove-footer-on-light.png" alt="codelove.in" className="only-light h-full w-auto" />
+                <img src="brand/codelove-footer-on-dark.png" alt="codelove.in" className="only-dark h-full w-auto" />
+                <img src="brand/codelove-footer-on-light.png" alt="codelove.in" className="only-light h-full w-auto" />
               </span>
             </span>
             <ArrowUpRight className="size-4 text-faint transition group-hover:text-accent" />

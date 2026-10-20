@@ -17,6 +17,9 @@ import Settings from "./pages/Settings";
 import Guide from "./pages/Guide";
 import Privacy from "./pages/Privacy";
 
+/** "/" on the custom domain, "/youtube-for-all" on <user>.github.io (set in index.html). */
+const BASENAME = ((window as { __BASE__?: string }).__BASE__ ?? "/").replace(/\/$/, "") || "/";
+
 function FullScreenSpinner() {
   return (
     <div className="grid min-h-dvh place-items-center">
@@ -61,7 +64,7 @@ export default function App() {
   return (
     <AuthProvider>
       <ToastProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={BASENAME}>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />

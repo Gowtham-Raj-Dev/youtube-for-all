@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import { Link } from "react-router";
+import { useEffect, useState, type ReactNode } from "react";
+import { Link, useLocation } from "react-router";
 import {
   ArrowRight,
   Bot,
@@ -242,6 +242,10 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 
 export default function Home() {
   useReveal();
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (hash) setTimeout(() => document.querySelector(hash)?.scrollIntoView({ behavior: "smooth", block: "start" }), 30);
+  }, [hash]);
 
   return (
     <div className="min-h-dvh pt-16">
@@ -270,9 +274,9 @@ export default function Home() {
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <PrimaryCta />
-              <a href="#how">
+              <Link to="/#how">
                 <Button size="lg" variant="secondary" icon={<Play className="size-4" />}>How it works</Button>
-              </a>
+              </Link>
             </div>
             <ul className="mt-9 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted">
               {["100% free", "No server, no install", "Shorts & long videos"].map((t) => (
@@ -462,7 +466,7 @@ export default function Home() {
           <div className="grad-bg absolute inset-0" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(255,255,255,0.3),transparent_45%),radial-gradient(circle_at_90%_90%,rgba(0,0,0,0.25),transparent_50%)]" />
           <div className="relative">
-            <img src="/favicon.svg" alt="" className="mx-auto size-16 rounded-2xl shadow-2xl ring-4 ring-white/20" />
+            <img src="favicon.svg" alt="" className="mx-auto size-16 rounded-2xl shadow-2xl ring-4 ring-white/20" />
             <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-on-accent sm:text-5xl">Make it once. Let it post itself.</h2>
             <p className="mx-auto mt-4 max-w-xl text-lg text-on-accent/80">Batch your content on the weekend, and let UTubeFlow handle the daily uploads.</p>
             <Link to="/login" className="mt-9 inline-flex h-13 items-center gap-2 rounded-xl bg-[#04140e] px-7 font-bold text-white shadow-xl transition hover:scale-[1.03]">

@@ -2,16 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // The same build serves from a domain root (utubeflow.codelove.in/) and from a GitHub Pages
+      // project path (<user>.github.io/youtube-for-all/). Pick the base before any asset loads so
+      // relative URLs (./assets, favicon.svg…) resolve correctly — also on deep links via 404.html.
+      (function () {
+        var seg = location.pathname.split("/")[1];
+        var base = /\.github\.io$/.test(location.hostname) && seg ? "/" + seg + "/" : "/";
+        window.__BASE__ = base;
+        document.write('<base href="' + base + '" />');
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>UTubeFlow — Free YouTube Automation by CodeLove</title>
     <meta name="description" content="Bulk upload and schedule YouTube videos and Shorts for free. Autopilot publishes on time even when your PC is off — using your own YouTube API and Google Drive." />
     <meta name="theme-color" content="#060c0a" />
     <link rel="canonical" href="https://utubeflow.codelove.in/" />
 
-    <link rel="icon" href="/favicon.ico" sizes="48x48" />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="icon" href="favicon.ico" sizes="48x48" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <link rel="manifest" href="site.webmanifest" />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="UTubeFlow by CodeLove" />

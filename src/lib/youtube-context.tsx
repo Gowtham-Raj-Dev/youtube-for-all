@@ -1,4 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { doc, setDoc } from "firebase/firestore";
+import { db } from "./firebase";
 import { useUser } from "./auth";
 import { useSettings } from "./settings";
 import { clearStoredToken, getMyChannel, getStoredToken, requestToken, revokeToken, YouTubeError, type Channel } from "./youtube";
@@ -55,9 +57,26 @@ export function YouTubeProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(id);
   }, [tick]);
 
+  // The channel summary also lives on users/{uid}: the chat rules check it (only connected
+  // channels can post) and the admin dashboard lists it.
+  const syncChannel = useCallback(
+    (c: Channel | null) =>
+      setDoc(
+        doc(db, "users", user.uid),
+        { channel: c ? { id: c.id, title: c.title, handle: c.handle, thumbnail: c.thumbnail, subscribers: c.subscribers, views: c.views, videos: c.videos } : null },
+        { merge: true },
+      ).catch(() => {}),
+    [user.uid],
+  );
+  useEffect(() => {
+    if (channel) syncChannel(channel);
+    // Once per sign-in: a channel cached from before this field existed gets copied up.
+  }, [syncChannel]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const saveChannel = useCallback(
     (c: Channel | null) => {
       setChannel(c);
+      syncChannel(c);
       try {
         if (c) localStorage.setItem(cacheKey, JSON.stringify(c));
         else localStorage.removeItem(cacheKey);
@@ -65,7 +84,7 @@ export function YouTubeProvider({ children }: { children: ReactNode }) {
         /* ignore */
       }
     },
-    [cacheKey],
+    [cacheKey, syncChannel],
   );
 
   const run = useCallback(

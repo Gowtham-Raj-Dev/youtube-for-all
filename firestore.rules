@@ -1,26 +1,108 @@
 rules_version = '2';
 
-// Each signed-in user can only read and write their own documents.
+// - users/{uid} (+ items): each user reads and writes only their own; the admin can read everyone's.
+// - presence/{uid}: who is online (name, photo, channel title only); every signed-in user can read it.
+// - chat/{id}: the community chat. Only users with a connected YouTube channel (and the admin) can post.
+//   Messages count as expired 3 hours after createdAt, and then anyone signed in may delete them.
+// - dms/{uid}: a private, permanent thread between one user and the admin.
 // Nothing else in the database is reachable from the browser.
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
     function isOwner(uid) {
-      return request.auth != null && request.auth.uid == uid;
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && request.auth.token.email == 'codelove.in@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    function hasChannel() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('channel', null) != null;
+    }
+
+    // An attachment is stored inline as a data: URL (Firestore documents are capped at 1 MiB).
+    function validFile(f) {
+      return f == null || (f is map
+        && f.keys().hasOnly(['name', 'type', 'size', 'data', 'w', 'h'])
+        && f.name is string && f.name.size() <= 200
+        && f.type is string && f.type.size() <= 100
+        && f.size is int
+        && f.data is string && f.data.size() < 950000);
+    }
+
+    function validMessage(d) {
+      return d.text is string && d.text.size() <= 2000
+        && validFile(d.file)
+        && (d.text.size() > 0 || d.file != null)
+        && d.name is string && d.name.size() <= 100
+        && d.photo is string && d.photo.size() <= 1000
+        && d.createdAt == request.time;
     }
 
     match /users/{uid} {
-      allow read, delete: if isOwner(uid);
+      allow read: if isOwner(uid) || isAdmin();
+      allow delete: if isOwner(uid);
       allow create, update: if isOwner(uid) && request.resource.size() < 40;
 
       // Uploaded / queued / scheduled videos.
       match /items/{itemId} {
-        allow read, delete: if isOwner(uid);
+        allow read: if isOwner(uid) || isAdmin();
+        allow delete: if isOwner(uid);
         allow create, update: if isOwner(uid)
           && request.resource.data.kind in ['video', 'short']
           && request.resource.data.title is string
           && request.resource.data.title.size() <= 100
           && request.resource.data.description is string
           && request.resource.data.description.size() <= 5000;
+      }
+    }
+
+    // Admin dashboard: every user's videos in one collection-group query.
+    match /{path=**}/items/{itemId} {
+      allow read: if isAdmin();
+    }
+
+    match /presence/{uid} {
+      allow read: if signedIn();
+      allow delete: if isOwner(uid);
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['name', 'photo', 'channel', 'lastSeen'])
+        && request.resource.data.name is string && request.resource.data.name.size() <= 100
+        && request.resource.data.lastSeen == request.time;
+    }
+
+    match /chat/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'photo', 'channel', 'admin', 'text', 'file', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.admin == isAdmin()
+        && (isAdmin() || hasChannel())
+        && validMessage(request.resource.data);
+      allow delete: if signedIn()
+        && (resource.data.uid == request.auth.uid
+          || isAdmin()
+          || resource.data.createdAt < request.time - duration.value(3, 'h'));
+    }
+
+    match /dms/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create, update: if (isOwner(uid) || isAdmin())
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'photo', 'channel', 'lastText', 'lastFrom', 'lastAt', 'unreadAdmin', 'unreadUser'])
+        && request.resource.data.uid == uid;
+
+      // Kept forever: no updates or deletes from the browser.
+      match /messages/{id} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if ((isOwner(uid) && request.resource.data.from == 'user') || (isAdmin() && request.resource.data.from == 'admin'))
+          && request.resource.data.keys().hasOnly(['from', 'name', 'photo', 'text', 'file', 'createdAt'])
+          && validMessage(request.resource.data);
       }
     }
 

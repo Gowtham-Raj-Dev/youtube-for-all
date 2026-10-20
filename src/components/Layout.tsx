@@ -15,6 +15,7 @@ import {
   ListVideo,
   LogOut,
   Menu,
+  Crown,
   Moon,
   Plus,
   Settings as SettingsIcon,
@@ -30,7 +31,9 @@ import { useAutopilot } from "../lib/autopilot-context";
 import { useUploads } from "../lib/uploads";
 import { useItems } from "../lib/items";
 import { useSettings } from "../lib/settings";
+import { isAdminUser, saveProfile } from "../lib/community";
 import { cx, Progress } from "./ui";
+import { ChatDock, ChatProvider, useChat } from "./Chat";
 
 type NavItem = { to: string; label: string; short: string; icon: typeof Home; badge?: boolean };
 
@@ -58,7 +61,8 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
     ],
   },
 ];
-const ALL = GROUPS.flatMap((g) => g.items);
+const ADMIN_GROUP: { title: string; items: NavItem[] } = { title: "Owner", items: [{ to: "/admin", label: "Admin", short: "Admin", icon: Crown }] };
+const ALL = [...GROUPS, ADMIN_GROUP].flatMap((g) => g.items);
 const MOBILE_TABS = ["/dashboard", "/upload/short", "/queue", "/schedule", "/settings"].map((to) => ALL.find((n) => n.to === to)!);
 
 export function Logo({ className }: { className?: string }) {
@@ -181,6 +185,9 @@ function UserMenu() {
 
 function UploadsDock() {
   const { jobs, batches, cancel, stopBatch, dismissBatch } = useUploads();
+  const chat = useChat();
+  // Sit left of the docked chat, or above the chat launcher.
+  const pos = chat.docked ? "right-[23rem] bottom-6" : "right-4 bottom-36 lg:bottom-22";
   const [min, setMin] = useState(false);
   const inBatch = new Set(batches.map((b) => b.currentItemId).filter(Boolean));
   const loose = Object.values(jobs).filter((j) => !inBatch.has(j.itemId));
@@ -194,7 +201,7 @@ function UploadsDock() {
     return (
       <button
         onClick={() => setMin(false)}
-        className="fixed right-4 bottom-20 z-40 flex items-center gap-2.5 rounded-full border border-line bg-card py-2 pr-4 pl-2.5 text-sm font-semibold shadow-2xl shadow-black/30 lg:bottom-6"
+        className={cx("fixed z-40 flex items-center gap-2.5 rounded-full border border-line bg-card py-2 pr-4 pl-2.5 text-sm font-semibold shadow-2xl shadow-black/30", pos)}
       >
         {active.length || loose.length ? <Loader2 className="size-4.5 animate-spin text-accent" /> : <CheckCircle2 className="size-4.5 text-ok" />}
         <span className="tabular-nums">{totalAll ? `${doneAll} / ${totalAll}` : "Uploading"}</span>
@@ -203,7 +210,7 @@ function UploadsDock() {
     );
 
   return (
-    <div className="fixed right-4 bottom-20 z-40 w-[min(23rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-line bg-card shadow-2xl shadow-black/40 lg:bottom-6">
+    <div className={cx("fixed z-40 w-[min(23rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-line bg-card shadow-2xl shadow-black/40", pos)}>
       <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
         <span className="flex items-center gap-2 text-sm font-semibold">
           {active.length || loose.length ? <Loader2 className="size-4 animate-spin text-accent" /> : <CheckCircle2 className="size-4 text-ok" />}
@@ -295,7 +302,20 @@ function UploadsDock() {
 }
 
 export default function Layout() {
+  return (
+    <ChatProvider>
+      <Shell />
+    </ChatProvider>
+  );
+}
+
+function Shell() {
   const user = useUser();
+  const chat = useChat();
+  const groups = isAdminUser(user) ? [...GROUPS, ADMIN_GROUP] : GROUPS;
+  useEffect(() => {
+    saveProfile(user);
+  }, [user]);
   const { items } = useItems(user.uid);
   const autopilot = useAutopilot();
   const queued = items.filter((i) => i.status === "queued" || i.status === "failed").length;
@@ -309,7 +329,7 @@ export default function Layout() {
 
   const nav = (
     <nav className="space-y-5">
-      {GROUPS.map((g) => (
+      {groups.map((g) => (
         <div key={g.title}>
           <div className="mb-1.5 px-3 text-[10px] font-semibold tracking-wider text-faint uppercase">{g.title}</div>
           <div className="space-y-0.5">
@@ -320,7 +340,11 @@ export default function Layout() {
                 className={({ isActive }) =>
                   cx(
                     "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
-                    isActive ? "bg-accent-soft text-fg" : "text-muted hover:bg-card-hover hover:text-fg",
+                    to === "/admin"
+                      ? cx("border border-amber-400/30 bg-gradient-to-r from-amber-400/15 to-fuchsia-500/10 text-amber-400", isActive ? "from-amber-400/25 to-fuchsia-500/20 text-fg" : "hover:from-amber-400/25")
+                      : isActive
+                        ? "bg-accent-soft text-fg"
+                        : "text-muted hover:bg-card-hover hover:text-fg",
                   )
                 }
               >
@@ -374,7 +398,7 @@ export default function Layout() {
   );
 
   return (
-    <div className="min-h-dvh lg:pl-68">
+    <div className={cx("min-h-dvh lg:pl-68", chat.docked && "pr-88")}>
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-68 flex-col border-r border-line bg-bg-soft/70 p-4 backdrop-blur lg:flex">{sidebar}</aside>
 
@@ -430,6 +454,7 @@ export default function Layout() {
       </nav>
 
       <UploadsDock />
+      <ChatDock />
     </div>
   );
 }

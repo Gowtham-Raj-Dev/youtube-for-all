@@ -17,6 +17,7 @@ import Schedule from "./pages/Schedule";
 import Settings from "./pages/Settings";
 import Guide from "./pages/Guide";
 import Privacy from "./pages/Privacy";
+import Admin from "./pages/Admin";
 
 /** "/" on the custom domain, "/youtube-for-all" on <user>.github.io (set in index.html). */
 const BASENAME = ((window as { __BASE__?: string }).__BASE__ ?? "/").replace(/\/$/, "") || "/";
@@ -86,6 +87,7 @@ export default function App() {
                 <Route path="/schedule" element={<Schedule />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/guide" element={<Guide />} />
+                <Route path="/admin" element={<Admin />} />
               </Route>
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

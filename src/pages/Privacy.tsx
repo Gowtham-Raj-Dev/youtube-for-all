@@ -14,6 +14,8 @@ export default function Privacy() {
           <p><b>What we never store:</b> your video files, your Google access tokens, passwords or client secrets. Google access is granted directly to your browser, lasts about one hour and is kept only in that browser tab.</p>
           <p><b>Your files:</b> with Autopilot, videos wait in a folder in your own Google Drive, and a script in your own Google account uploads them to YouTube. The app can only see the Drive files it created. Direct uploads go straight from your browser to YouTube.</p>
           <p><b>Google user data:</b> the app uses Google APIs only to upload videos you choose, set their details and thumbnails, manage your Autopilot folder, sheet and script, and show your channel and upload status. It does not share Google user data with anyone and does not use it for ads.</p>
+          <p><b>Chat:</b> messages and files you post in the community chat are visible to other signed-in users, with your name, photo and channel name, and are deleted 3 hours after they are sent. Private messages between you and the admin are kept so support can follow up. While the app is open, other users can see that you are online.</p>
+          <p><b>Admin:</b> the site owner can see each account's name, email, connected channel and the list of videos queued or uploaded through the app, to run and support the service.</p>
           <p><b>Deleting:</b> Settings → “Delete all my data” removes everything we store. You can revoke access at any time at myaccount.google.com/permissions.</p>
           <p><b>Contact:</b> codelove.in/contact</p>
         </div>

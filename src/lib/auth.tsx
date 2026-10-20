@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { onAuthStateChanged, signInWithPopup, signOut as fbSignOut, type User } from "firebase/auth";
-import { auth, googleProvider } from "./firebase";
+import { deleteDoc, doc } from "firebase/firestore";
+import { auth, db, googleProvider } from "./firebase";
 
 type AuthState = { user: User | null; loading: boolean };
 
@@ -25,5 +26,7 @@ export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
 
 export async function signOut() {
   sessionStorage.clear();
+  // Drop out of the chat's "online" list right away instead of after the timeout.
+  if (auth.currentUser) await deleteDoc(doc(db, "presence", auth.currentUser.uid)).catch(() => {});
   await fbSignOut(auth);
 }

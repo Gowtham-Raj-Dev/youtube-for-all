@@ -58,16 +58,18 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
       setJob(item.id, { itemId: item.id, title: item.title, phase: "preparing", progress: 0 });
       const fromDrive = !memoryFiles.has(item.id) && item.file?.storage === "drive";
       let token = "";
+      let driveToken = "";
       try {
-        token = await yt.ensureToken(fromDrive);
+        token = await yt.ensureToken();
+        if (fromDrive) driveToken = await yt.ensureDriveToken();
         await patchItem(user.uid, item.id, { status: "uploading", error: null });
         // Tell Autopilot to keep its hands off this one.
-        if (fromDrive && autopilot) await setRowStatus(token, autopilot, item.id, "uploading");
+        if (fromDrive && autopilot) await setRowStatus(driveToken, autopilot, item.id, "uploading");
 
         const mem = memoryFiles.get(item.id);
-        const video = mem?.video ?? (item.file ? await downloadFromDrive(token, item.file.path) : null);
+        const video = mem?.video ?? (item.file ? await downloadFromDrive(driveToken, item.file.path) : null);
         if (!video) throw new Error("The video file is gone. Delete this item and add the video again.");
-        const thumb = mem?.thumb ?? (item.thumb ? await downloadFromDrive(token, item.thumb.path).catch(() => null) : null);
+        const thumb = mem?.thumb ?? (item.thumb ? await downloadFromDrive(driveToken, item.thumb.path).catch(() => null) : null);
 
         // A planned time that already passed means "publish now".
         const publishAt = item.publishAt && item.publishAt > Date.now() + 2 * 60_000 ? item.publishAt : null;
@@ -87,9 +89,9 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
 
         const status = publishAt ? "scheduled" : "uploaded";
         if (fromDrive && autopilot) {
-          await setRowStatus(token, autopilot, item.id, status, videoId, warning ?? "");
-          if (item.file) await trashDriveFile(token, item.file.path);
-          if (item.thumb) await trashDriveFile(token, item.thumb.path);
+          await setRowStatus(driveToken, autopilot, item.id, status, videoId, warning ?? "");
+          if (item.file) await trashDriveFile(driveToken, item.file.path);
+          if (item.thumb) await trashDriveFile(driveToken, item.thumb.path);
         }
         memoryFiles.delete(item.id);
         await patchItem(user.uid, item.id, {
@@ -103,9 +105,9 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
         });
       } catch (e) {
         const msg = (e as Error).message;
-        if (e instanceof YouTubeError && e.reason === "authExpired") clearStoredToken(settings.youtubeClientId);
+        if (e instanceof YouTubeError && e.reason === "authExpired") clearStoredToken(settings.youtubeClientId, "yt");
         // Hand a Drive item back to Autopilot so it can try again by itself.
-        if (fromDrive && autopilot && token) await setRowStatus(token, autopilot, item.id, "queued", "", msg).catch(() => {});
+        if (fromDrive && autopilot && driveToken) await setRowStatus(driveToken, autopilot, item.id, "queued", "", msg).catch(() => {});
         await patchItem(user.uid, item.id, { status: fromDrive ? "queued" : "failed", error: msg }).catch(() => {});
         throw e;
       } finally {

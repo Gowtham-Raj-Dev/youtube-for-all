@@ -23,6 +23,8 @@ export type Settings = {
     notifySubscribers: boolean;
   };
   keepFilesAfterUpload: boolean;
+  /** Setup steps the user ticked by hand (steps we can't detect, e.g. "created the Cloud project"). */
+  setupDone: string[];
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -39,6 +41,7 @@ export const DEFAULT_SETTINGS: Settings = {
     notifySubscribers: true,
   },
   keepFilesAfterUpload: false,
+  setupDone: [],
 };
 
 type SettingsState = {

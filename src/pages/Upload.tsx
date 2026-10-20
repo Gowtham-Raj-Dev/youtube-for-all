@@ -189,7 +189,8 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
 
     try {
       // Get the token inside the click so the Google popup is not blocked.
-      await yt.ensureToken(!direct);
+      // Direct uploads talk to YouTube; Autopilot only writes to Drive/Sheets.
+      await (direct ? yt.ensureToken() : yt.ensureDriveToken());
     } catch (e) {
       return toast("error", (e as Error).message);
     }

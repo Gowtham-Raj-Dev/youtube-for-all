@@ -1,7 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
-import { AlertTriangle, BookOpen, Bot, CalendarClock, CheckCircle2, CircleDashed, Database, ExternalLink, Pause, Play, Plus, RefreshCw, ShieldCheck, SlidersHorizontal, Trash2, Wrench, X, XCircle, Youtube } from "lucide-react";
+import { AlertTriangle, BookOpen, Bot, CalendarClock, CheckCircle2, CircleDashed, Database, Pause, Play, Plus, RefreshCw, ShieldCheck, SlidersHorizontal, Trash2, Wrench, X, XCircle, Youtube } from "lucide-react";
 import { db } from "../lib/firebase";
 import { signOut, useUser } from "../lib/auth";
 import { useSettings, YT_CATEGORIES, type Privacy, type Settings as S } from "../lib/settings";
@@ -11,8 +11,9 @@ import { getMyChannel, isValidClientId } from "../lib/youtube";
 import { checkAutopilot, deployScript, ENABLE_APIS_URL, isReady, openWebApp, SCRIPT_SETTINGS_URL, SCRIPT_VERSION, setupAutopilot, type Check } from "../lib/autopilot";
 import { siteOrigin } from "../lib/snippets";
 import { fmtSlot, sortSlots, timeZoneName } from "../lib/schedule";
-import { Alert, Badge, Button, Card, CardHeader, cx, Field, Input, PageHeader, Select, Textarea, Toggle, useToast } from "../components/ui";
+import { Alert, Badge, Button, Card, CardHeader, Code, cx, Field, Input, PageHeader, Progress, Select, Textarea, Toggle, useToast } from "../components/ui";
 import { CopyBox } from "../components/CopyBox";
+import { Clicks, OpenLink, StepCard, useSetupTicks } from "../components/Steps";
 import { CODELOVE, PLATFORMS } from "../components/Site";
 import { ArrowUpRight, Heart } from "lucide-react";
 
@@ -75,8 +76,8 @@ function ConnectionCheck() {
       const cfg = isReady(settings.autopilot) ? settings.autopilot : null;
       let token: string;
       try {
-        token = await yt.ensureToken(!!cfg);
-        add({ key: "login", label: "Google permission", state: "ok", detail: cfg ? "YouTube + Drive allowed." : "YouTube allowed." });
+        token = await yt.ensureToken();
+        add({ key: "login", label: "YouTube permission", state: "ok", detail: "Allowed." });
       } catch (e) {
         add({ key: "login", label: "Google permission", state: "error", detail: (e as Error).message });
         return;
@@ -91,7 +92,14 @@ function ConnectionCheck() {
         add({ key: "autopilot", label: "Autopilot", state: "warn", detail: "Not set up. Without it, the browser tab must stay open while videos upload." });
         return;
       }
-      const r = await checkAutopilot(token, cfg);
+      // A second Google popup right after the first would be blocked, so only use an existing Drive token.
+      const driveToken = yt.driveAllowed ? await yt.ensureDriveToken() : null;
+      if (!driveToken) {
+        add({ key: "drive", label: "Drive permission", state: "error", detail: "Not allowed in this session — click “Allow Google Drive” in the Autopilot section, then check again." });
+        return;
+      }
+      add({ key: "drive", label: "Drive permission", state: "ok", detail: "Allowed." });
+      const r = await checkAutopilot(driveToken, cfg);
       autopilot.setStatus(r.status);
       r.checks.forEach(add);
     } finally {
@@ -136,6 +144,7 @@ function ConnectionCheck() {
 function YouTubeSection() {
   const user = useUser();
   const { settings, save } = useSettings();
+  const { isTicked, setTicked } = useSetupTicks();
   const yt = useYouTube();
   const toast = useToast();
   const [clientId, setClientId] = useState(settings.youtubeClientId);
@@ -158,115 +167,164 @@ function YouTubeSection() {
     }
   };
 
+  const email = user.email ?? "";
+  const haveId = !!settings.youtubeClientId;
+  const connected = !!yt.channel;
+  // Manual ticks, plus what the app can infer: a saved Client ID means the Cloud steps were done,
+  // a connected channel means the APIs and the test user are fine too.
+  const done = [
+    isTicked("yt-project") || haveId,
+    isTicked("yt-apis") || connected,
+    isTicked("yt-consent") || haveId,
+    isTicked("yt-testuser") || connected,
+    isTicked("yt-client") || haveId,
+    haveId,
+    connected,
+  ];
+  const current = done.findIndex((d) => !d);
+  const count = done.filter(Boolean).length;
+  const tick = (key: string) => (on: boolean) => setTicked(key, on).catch((e) => toast("error", (e as Error).message));
+
   return (
     <Card>
       <span id="youtube" className="block scroll-mt-24" />
-      <CardHeader icon={<Youtube className="size-5" />} title="YouTube" subtitle="Your own Google Cloud OAuth Client ID — your quota, your control." />
-      <div className="space-y-5 p-5">
-        <Alert
-          tone="info"
-          title="First time? Follow the 6 steps in the guide"
-          action={<Link to="/guide#youtube"><Button size="sm" variant="primary" icon={<BookOpen className="size-3.5" />}>Open guide</Button></Link>}
-        >
-          Every click is listed, with a direct link. Quick links:
-        </Alert>
-        <div className="flex flex-wrap gap-2">
-          <ExtButton href="https://console.cloud.google.com/projectcreate">1 · Create project</ExtButton>
-          <ExtButton href={ENABLE_APIS_URL}>2 · Enable APIs</ExtButton>
-          <ExtButton href="https://console.cloud.google.com/auth/overview">3 · Consent screen</ExtButton>
-          <ExtButton href="https://console.cloud.google.com/auth/audience">4 · Add test user</ExtButton>
-          <ExtButton href="https://console.cloud.google.com/auth/clients/create">5 · Create Client ID</ExtButton>
+      <CardHeader
+        icon={<Youtube className="size-5" />}
+        title="YouTube setup"
+        subtitle="7 steps, about 8 minutes, once. Tick each step when you finish it."
+        action={<Link to="/guide#youtube"><Button size="sm" variant="ghost" icon={<BookOpen className="size-3.5" />}>Full guide</Button></Link>}
+      />
+      <div className="space-y-4 p-5">
+        <div>
+          <div className="mb-1.5 flex justify-between text-xs">
+            <span className="font-medium">{count === 7 ? "All done — YouTube is connected 🎉" : `${count} of 7 done`}</span>
+            <span className="text-faint">Signed in as {email}</span>
+          </div>
+          <Progress value={count / 7} />
         </div>
 
-        <div className="rounded-xl border border-danger/30 bg-danger/5 p-4">
-          <div className="text-sm font-semibold text-danger">Step 4 is a must — add this Gmail as a Test user</div>
-          <p className="mt-1 text-xs text-muted">
-            Otherwise Google shows <span className="font-mono">“Access blocked: … has not completed the Google verification process (Error 403)”</span>. Google Cloud → Audience → Test users → Add users → paste → Save.
-          </p>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="min-w-0 flex-1">
-              <CopyBox value={user.email ?? ""} />
+        <ol className="space-y-3">
+          <StepCard n={1} title="Create a Google Cloud project" done={done[0]} current={current === 0} onTick={haveId ? undefined : tick("yt-project")} why="A free container for your API settings. Use the Google account that owns your YouTube channel.">
+            <Clicks>
+              <>Click <b>Open</b>. First time? Tick the Terms box → <b>Agree and continue</b>.</>
+              <><b>Project name</b>: anything, e.g. <Code>My YouTube</Code> → <b>Create</b>.</>
+              <>Wait ~10 s, then click <b>Select project</b> in the notification.</>
+            </Clicks>
+            <OpenLink href="https://console.cloud.google.com/projectcreate">Open: New project</OpenLink>
+          </StepCard>
+
+          <StepCard n={2} title="Turn on the APIs" done={done[1]} current={current === 1} onTick={connected ? undefined : tick("yt-apis")} why="YouTube for uploads, plus Drive, Sheets and Apps Script for Autopilot — all four at once.">
+            <Clicks>
+              <>Click <b>Open</b>. Check your project is selected at the top → <b>Next</b>.</>
+              <>Click <b>Enable</b> and wait until it finishes.</>
+            </Clicks>
+            <OpenLink href={ENABLE_APIS_URL}>Open: Enable APIs</OpenLink>
+          </StepCard>
+
+          <StepCard n={3} title="Set up the consent screen" done={done[2]} current={current === 2} onTick={haveId ? undefined : tick("yt-consent")}>
+            <Clicks>
+              <>Click <b>Open</b> → <b>Get started</b>.</>
+              <><b>App name</b>: anything. <b>User support email</b>: your Gmail → <b>Next</b>.</>
+              <><b>Audience</b>: <b>External</b> → <b>Next</b>.</>
+              <><b>Contact information</b>: your Gmail → <b>Next</b>.</>
+              <>Tick <b>I agree…</b> → <b>Continue</b> → <b>Create</b>.</>
+            </Clicks>
+            <OpenLink href="https://console.cloud.google.com/auth/overview">Open: Consent screen</OpenLink>
+          </StepCard>
+
+          <StepCard n={4} title="Add your Gmail as a Test user" done={done[3]} current={current === 3} onTick={connected ? undefined : tick("yt-testuser")}>
+            <div className="rounded-xl border border-danger/30 bg-danger/5 p-3.5 text-xs text-muted">
+              <b className="text-danger">Must do.</b> Without it Google shows <span className="font-mono">“Access blocked: … has not completed the Google verification process (Error 403: access_denied)”</span>.
             </div>
-            <ExtButton href="https://console.cloud.google.com/auth/audience">Open Test users</ExtButton>
-          </div>
-        </div>
+            <Clicks>
+              <>Click <b>Open</b> (the <b>Audience</b> page). Check your project is selected.</>
+              <>Under <b>Test users</b> click <b>+ Add users</b>.</>
+              <>Paste this Gmail and click <b>Save</b>:</>
+            </Clicks>
+            <CopyBox value={email} />
+            <Clicks start={4}>
+              <>Keep <b>Publishing status</b> as <b>Testing</b> — don't click “Publish app”.</>
+            </Clicks>
+            <OpenLink href="https://console.cloud.google.com/auth/audience">Open: Test users</OpenLink>
+          </StepCard>
 
-        <CopyBox label="Step 5 · Authorized JavaScript origin (paste this when creating the Client ID)" value={siteOrigin()} />
+          <StepCard n={5} title="Create the OAuth Client ID" done={done[4]} current={current === 4} onTick={haveId ? undefined : tick("yt-client")}>
+            <Clicks>
+              <>Click <b>Open</b>. <b>Application type</b>: <b>Web application</b>. Name: anything.</>
+              <>Under <b>Authorized JavaScript origins</b> → <b>+ Add URI</b> → paste exactly this:</>
+            </Clicks>
+            <CopyBox value={siteOrigin()} />
+            <Clicks start={3}>
+              <>Leave redirect URIs empty → <b>Create</b>.</>
+              <>Copy the <b>Client ID</b> it shows (ends with <Code>.apps.googleusercontent.com</Code>). You don't need the secret.</>
+            </Clicks>
+            <OpenLink href="https://console.cloud.google.com/auth/clients/create">Open: Create Client ID</OpenLink>
+          </StepCard>
 
-        <Field
-          label="OAuth Client ID"
-          hint={<>Looks like <span className="font-mono">1234567890-abc123.apps.googleusercontent.com</span>.</>}
-        >
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Input value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="xxxxxxxx.apps.googleusercontent.com" spellCheck={false} />
-            <Button variant={dirty ? "primary" : "secondary"} disabled={!dirty || (!!clientId.trim() && !valid)} loading={busy} onClick={saveId}>
-              Save
-            </Button>
-          </div>
-        </Field>
-        {clientId && !valid && <Alert tone="warn">That does not look like an OAuth Client ID. Copy the “Client ID” (not the secret, not an API key).</Alert>}
+          <StepCard n={6} title="Paste your Client ID" done={done[5]} current={current === 5} autoNote="Ticks itself when you click Save">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="1234567890-abc123.apps.googleusercontent.com" spellCheck={false} />
+              <Button variant={dirty ? "primary" : "secondary"} disabled={!dirty || (!!clientId.trim() && !valid)} loading={busy} onClick={saveId}>
+                Save
+              </Button>
+            </div>
+            {clientId && !valid && <Alert tone="warn">That does not look like an OAuth Client ID. Copy the “Client ID” (not the secret, not an API key).</Alert>}
+          </StepCard>
 
-        {settings.youtubeClientId && (
-          <div className="flex flex-col gap-4 rounded-xl border border-line bg-bg-soft p-4 sm:flex-row sm:items-center">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              {yt.channel?.thumbnail ? <img src={yt.channel.thumbnail} alt="" className="size-10 rounded-full" referrerPolicy="no-referrer" /> : <Youtube className="size-8 text-accent" />}
-              <div className="min-w-0">
-                <div className="truncate font-medium">{yt.channel?.title ?? "Not connected"}</div>
-                <div className="text-xs text-muted">
-                  {yt.connected ? "Connected for this session (about 1 hour, then one click to reconnect)" : yt.channel ? "Session expired — reconnect to upload" : "Connect to link your channel"}
+          <StepCard n={7} title="Connect your YouTube channel" done={done[6]} current={current === 6} autoNote="Ticks itself when your channel is connected">
+            {!haveId ? (
+              <p className="text-sm text-muted">Finish step 6 first.</p>
+            ) : (
+              <>
+                <Clicks>
+                  <>Click <b>Connect YouTube</b> and choose <b>{email}</b> (or your Brand Account channel).</>
+                  <>On <b>“Google hasn't verified this app”</b> click <b>Continue</b> — it's your own app.</>
+                  <><b>Tick every checkbox</b> → <b>Continue</b>.</>
+                </Clicks>
+                <div className="flex flex-col gap-4 rounded-xl border border-line bg-bg-soft p-4 sm:flex-row sm:items-center">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    {yt.channel?.thumbnail ? <img src={yt.channel.thumbnail} alt="" className="size-10 rounded-full" referrerPolicy="no-referrer" /> : <Youtube className="size-8 text-accent" />}
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{yt.channel?.title ?? "Not connected yet"}</div>
+                      <div className="text-xs text-muted">
+                        {yt.connected ? "Connected for this session (about 1 hour, then one click to reconnect)" : yt.channel ? "Session expired — reconnect to upload" : "Click Connect to link your channel"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {yt.channel && <Button variant="ghost" onClick={yt.disconnect}>Disconnect</Button>}
+                    {!yt.connected && (
+                      <Button variant="primary" loading={yt.connecting} icon={<Youtube className="size-4" />} onClick={() => yt.connect().then(() => toast("ok", "YouTube connected!")).catch((e) => toast("error", e.message))}>
+                        Connect YouTube
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              {yt.channel && <Button variant="ghost" onClick={yt.disconnect}>Disconnect</Button>}
-              {!yt.connected && (
-                <Button variant="primary" loading={yt.connecting} icon={<Youtube className="size-4" />} onClick={() => yt.connect().then(() => toast("ok", "YouTube connected!")).catch((e) => toast("error", e.message))}>
-                  Connect YouTube
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-        {yt.error && (
-          <Alert tone="error" title="Could not connect">
-            {yt.error}
-            {/origin|redirect_uri|invalid_client|idpiframe/i.test(yt.error) && " — check that the Authorized JavaScript origin above is added to your Client ID exactly."}
-          </Alert>
-        )}
+              </>
+            )}
+            {yt.error && (
+              <Alert tone="error" title="Could not connect">
+                {yt.error}
+                {/origin|redirect_uri|invalid_client|idpiframe/i.test(yt.error) && " — check step 5: the Authorized JavaScript origin must match exactly."}
+                {/closed/i.test(yt.error) && " If Google said “Access blocked”, do step 4 (Test user)."}
+              </Alert>
+            )}
+          </StepCard>
+        </ol>
       </div>
     </Card>
   );
 }
 
-function ExtButton({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <a href={href} target="_blank" rel="noreferrer">
-      <Button size="sm" icon={<ExternalLink className="size-3.5" />}>{children}</Button>
-    </a>
-  );
-}
 
 // ---------- Autopilot ----------
-
-function Step({ n, title, state, children }: { n: number; title: string; state: "ok" | "todo" | "warn"; children: ReactNode }) {
-  return (
-    <li className="flex gap-4 p-5">
-      <span className={cx("grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold", state === "ok" ? "bg-ok text-white" : state === "warn" ? "bg-warn text-white" : "bg-bg-soft ring-1 ring-line")}>
-        {state === "ok" ? "✓" : n}
-      </span>
-      <div className="min-w-0 flex-1 space-y-3">
-        <h3 className="pt-1 font-semibold">{title}</h3>
-        {children}
-      </div>
-    </li>
-  );
-}
 
 function AutopilotSection() {
   const { settings, save } = useSettings();
   const yt = useYouTube();
   const autopilot = useAutopilot();
   const toast = useToast();
+  const { isTicked, setTicked } = useSetupTicks();
   const [step, setStep] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const cfg = autopilot.config;
@@ -275,7 +333,7 @@ function AutopilotSection() {
 
   const allowDrive = () =>
     yt
-      .connect(true)
+      .connectDrive()
       .then(() => toast("ok", "Google Drive allowed."))
       .catch((e) => toast("error", e.message));
 
@@ -283,7 +341,7 @@ function AutopilotSection() {
     setError(null);
     setStep("Starting…");
     try {
-      const token = await yt.ensureToken(true);
+      const token = await yt.ensureDriveToken();
       await setupAutopilot(token, settings.autopilot, settings.keepFilesAfterUpload, (c) => save({ autopilot: c }), setStep);
       toast("ok", "Autopilot created. Now click “Activate Autopilot”.");
     } catch (e) {
@@ -297,7 +355,7 @@ function AutopilotSection() {
     if (!cfg) return;
     setStep("Updating…");
     try {
-      const token = await yt.ensureToken(true);
+      const token = await yt.ensureDriveToken();
       const d = await deployScript(token, cfg, settings.keepFilesAfterUpload);
       await save({ autopilot: { ...cfg, ...d } });
       toast("ok", "Autopilot updated.");
@@ -313,83 +371,109 @@ function AutopilotSection() {
     await save({ autopilot: null });
   };
 
+  const done = [isTicked("ap-script") || !!cfg, yt.driveAllowed || !!cfg, !!cfg && !outdated, running];
+  const current = done.findIndex((d) => !d);
+  const count = done.filter(Boolean).length;
+
   return (
     <Card>
       <span id="autopilot" className="block scroll-mt-24" />
       <CardHeader
         icon={<Bot className="size-5" />}
-        title="Autopilot"
+        title="Autopilot setup"
         subtitle="Add 100s of videos once. Google uploads each one before its time — your PC can be off. Free, in your own Google account."
         action={running ? <Badge className="bg-ok/10 text-ok">Running</Badge> : cfg ? <Badge className="bg-warn/10 text-warn">Not active</Badge> : <Badge>Off</Badge>}
       />
       {!settings.youtubeClientId ? (
         <div className="p-5">
-          <Alert tone="info">Finish the YouTube section first.</Alert>
+          <Alert tone="info">Finish the YouTube setup above first.</Alert>
         </div>
       ) : (
-        <ol className="divide-y divide-line">
-          <Step n={1} title="Turn on Google APIs (once)" state={cfg ? "ok" : "todo"}>
-            <p className="text-sm text-muted">Two clicks in your Google account. Use the same Google account and project as your Client ID.</p>
-            <div className="flex flex-wrap gap-2">
-              <ExtButton href={ENABLE_APIS_URL}>Enable YouTube, Drive, Sheets & Apps Script APIs</ExtButton>
-              <ExtButton href={SCRIPT_SETTINGS_URL}>Turn ON “Google Apps Script API”</ExtButton>
-            </div>
-          </Step>
+        <div className="space-y-4 p-5">
+          <div>
+            <div className="mb-1.5 text-xs font-medium">{count === 4 ? "Autopilot is running 🎉" : `${count} of 4 done`}</div>
+            <Progress value={count / 4} />
+          </div>
+          <ol className="space-y-3">
+            <StepCard
+              n={1}
+              title="Turn on the Apps Script API"
+              done={done[0]}
+              current={current === 0}
+              onTick={cfg ? undefined : (on) => setTicked("ap-script", on).catch((e) => toast("error", (e as Error).message))}
+              why="A one-time switch in your Google account. It lets UTubeFlow install the Autopilot script for you."
+            >
+              <Clicks>
+                <>Click <b>Open</b> (signed in with your YouTube account).</>
+                <>Find <b>Google Apps Script API</b> and switch it <b>On</b>.</>
+              </Clicks>
+              <OpenLink href={SCRIPT_SETTINGS_URL}>Open: Apps Script settings</OpenLink>
+              <p className="text-xs text-faint">
+                Also needed: Drive, Sheets and Apps Script APIs in your Cloud project — YouTube setup step 2 already turned them on. Not sure? <a href={ENABLE_APIS_URL} target="_blank" rel="noreferrer" className="text-accent hover:underline">Enable them again</a>.
+              </p>
+            </StepCard>
 
-          <Step n={2} title="Allow Google Drive" state={yt.driveAllowed ? "ok" : "todo"}>
-            <p className="text-sm text-muted">UTubeFlow can only see the files it creates in your Drive — nothing else.</p>
-            {!yt.driveAllowed && (
-              <Button variant="primary" loading={yt.connecting} onClick={allowDrive}>Allow Google Drive</Button>
-            )}
-          </Step>
+            <StepCard n={2} title="Allow Google Drive" done={done[1]} current={current === 1} autoNote="Ticks itself when Google says yes">
+              <Clicks>
+                <>Click <b>Allow Google Drive</b>. A Google window opens.</>
+                <>Pick your account → <b>Continue</b> → <b>tick every checkbox</b> → <b>Continue</b>.</>
+              </Clicks>
+              <p className="text-xs text-faint">This is a separate permission from YouTube (Google doesn't allow both in one window). UTubeFlow can only see the files it creates in your Drive.</p>
+              {!yt.driveAllowed && (
+                <Button variant="primary" loading={yt.connecting} onClick={allowDrive}>Allow Google Drive</Button>
+              )}
+            </StepCard>
 
-          <Step n={3} title="Create Autopilot" state={cfg ? (outdated ? "warn" : "ok") : "todo"}>
-            <p className="text-sm text-muted">Creates a private folder, a queue sheet and the Autopilot script in your Google account — automatically.</p>
-            {!cfg ? (
-              <Button variant="primary" loading={!!step} disabled={!yt.driveAllowed} onClick={create}>{step ?? "Create Autopilot"}</Button>
-            ) : outdated ? (
-              <Button variant="primary" loading={!!step} onClick={update}>{step ?? "Update Autopilot"}</Button>
-            ) : (
-              <p className="text-sm text-ok">Created (v{cfg.version}).</p>
-            )}
-            {error && (
-              <Alert tone="error" title="Setup stopped">
-                {error}
-                {/Apps Script API/i.test(error) && (
-                  <>
-                    {" "}
-                    <a href={SCRIPT_SETTINGS_URL} target="_blank" rel="noreferrer" className="font-medium text-fg underline">Open Apps Script settings</a>, turn it ON, wait a minute and click Create again.
-                  </>
-                )}
-              </Alert>
-            )}
-          </Step>
+            <StepCard n={3} title={outdated ? "Update Autopilot" : "Create Autopilot"} done={done[2]} current={current === 2} autoNote="Ticks itself when it's created">
+              <p className="text-sm text-muted">Makes a private folder, a queue sheet and the Autopilot script in your Google account — automatically, in about 10 seconds. You never need to open them.</p>
+              {!cfg ? (
+                <Button variant="primary" loading={!!step} onClick={create}>{step ?? "Create Autopilot"}</Button>
+              ) : outdated ? (
+                <Button variant="primary" loading={!!step} onClick={update}>{step ?? "Update Autopilot"}</Button>
+              ) : null}
+              {error && (
+                <Alert tone="error" title="Setup stopped">
+                  {error}
+                  {/Apps Script API/i.test(error) && " Do step 1 (switch it On), wait a minute and click Create again — it continues where it stopped."}
+                </Alert>
+              )}
+            </StepCard>
 
-          <Step n={4} title="Activate Autopilot" state={running ? "ok" : "todo"}>
-            <div className="text-sm text-muted">
-              A Google tab opens. Click <b className="text-fg">Review permissions</b> → pick your account → <b className="text-fg">Advanced</b> →{" "}
-              <b className="text-fg">Go to UTubeFlow Autopilot</b> → <b className="text-fg">Allow</b>. You'll see “Autopilot is ON”. Then come back and click Check.
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant={running ? "secondary" : "primary"} disabled={!cfg} icon={<Play className="size-4" />} onClick={() => cfg && openWebApp(cfg, "setup")}>
-                {running ? "Activate again" : "Activate Autopilot"}
-              </Button>
-              <Button disabled={!cfg || !yt.driveAllowed} loading={autopilot.syncing} icon={<RefreshCw className="size-4" />} onClick={() => autopilot.sync().catch((e) => toast("error", e.message))}>
-                Check status
-              </Button>
-            </div>
-          </Step>
+            <StepCard n={4} title="Activate Autopilot" done={done[3]} current={current === 3} autoNote="Ticks itself once Autopilot reports in — click Check status">
+              <Clicks>
+                <>Click <b>Activate Autopilot</b>. A new Google tab opens.</>
+                <>Click <b>Review permissions</b> → pick your account.</>
+                <>On <b>“Google hasn't verified this app”</b> click <b>Advanced</b> → <b>Go to UTubeFlow Autopilot (unsafe)</b>. It's your own script.</>
+                <>Click <b>Allow</b>. You'll see <b>“Autopilot is ON”</b>. Close that tab and click <b>Check status</b> here.</>
+              </Clicks>
+              <div className="flex flex-wrap gap-2">
+                <Button variant={running ? "secondary" : "primary"} disabled={!cfg} icon={<Play className="size-4" />} onClick={() => cfg && openWebApp(cfg, "setup")}>
+                  {running ? "Activate again" : "Activate Autopilot"}
+                </Button>
+                <Button disabled={!cfg} loading={autopilot.syncing} icon={<RefreshCw className="size-4" />} onClick={async () => {
+                  try {
+                    await yt.ensureDriveToken();
+                    await autopilot.sync();
+                  } catch (e) {
+                    toast("error", (e as Error).message);
+                  }
+                }}>
+                  Check status
+                </Button>
+              </div>
+            </StepCard>
+          </ol>
 
           {cfg && (
-            <li className="flex flex-wrap items-center gap-2 bg-bg-soft/50 px-5 py-4">
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-bg-soft/50 px-4 py-3">
               <span className="mr-auto text-xs text-muted">Tools</span>
               <Button size="sm" icon={<Play className="size-3.5" />} onClick={() => openWebApp(cfg, "run")} title="Runs Autopilot once now and shows the result">Run now</Button>
               <Button size="sm" icon={<Wrench className="size-3.5" />} loading={step === "Updating…"} onClick={update} title="Re-install the latest script">Update</Button>
               <Button size="sm" icon={<Pause className="size-3.5" />} onClick={() => openWebApp(cfg, "stop")}>Pause</Button>
               <Button size="sm" variant="danger" icon={<Trash2 className="size-3.5" />} onClick={reset}>Remove</Button>
-            </li>
+            </div>
           )}
-        </ol>
+        </div>
       )}
     </Card>
   );
@@ -562,7 +646,7 @@ function DataSection() {
     const cfg = isReady(settings.autopilot) ? settings.autopilot : null;
     if (!cfg) return;
     try {
-      const token = await yt.ensureToken(true);
+      const token = await yt.ensureDriveToken();
       const d = await deployScript(token, cfg, v);
       await save({ keepFilesAfterUpload: v, autopilot: { ...cfg, ...d } });
       toast("ok", "Autopilot updated.");

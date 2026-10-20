@@ -52,13 +52,18 @@ export class YouTubeError extends Error {
 }
 
 // ---------- Token ----------
+// Google refuses YouTube scopes and Drive scopes in one request ("scopes that cannot be requested
+// together"), so there are two separate tokens: "yt" for YouTube, "gd" for Drive/Sheets/Apps Script.
 
-type StoredToken = { token: string; exp: number; scope: string };
-const tokenKey = (clientId: string) => `yt_token:${clientId}`;
+export type TokenKind = "yt" | "gd";
+const SCOPES: Record<TokenKind, string[]> = { yt: YT_SCOPES, gd: AUTOPILOT_SCOPES };
 
-function readToken(clientId: string): StoredToken | null {
+type StoredToken = { token: string; exp: number };
+const tokenKey = (clientId: string, kind: TokenKind) => (kind === "yt" ? `yt_token:${clientId}` : `gd_token:${clientId}`);
+
+function readToken(clientId: string, kind: TokenKind): StoredToken | null {
   try {
-    const raw = sessionStorage.getItem(tokenKey(clientId));
+    const raw = sessionStorage.getItem(tokenKey(clientId, kind));
     if (!raw) return null;
     const t = JSON.parse(raw) as StoredToken;
     // Keep a 2-minute margin so a request never starts with an about-to-expire token.
@@ -68,17 +73,11 @@ function readToken(clientId: string): StoredToken | null {
   }
 }
 
-export const getStoredToken = (clientId: string) => readToken(clientId)?.token ?? null;
+export const getStoredToken = (clientId: string, kind: TokenKind = "yt") => readToken(clientId, kind)?.token ?? null;
 
-/** True when the current token includes every scope in `scopes`. */
-export function tokenHasScopes(clientId: string, scopes: string[]) {
-  const granted = (readToken(clientId)?.scope ?? "").split(" ");
-  return scopes.every((s) => granted.includes(s));
-}
-
-export function clearStoredToken(clientId: string) {
+export function clearStoredToken(clientId: string, kind?: TokenKind) {
   try {
-    sessionStorage.removeItem(tokenKey(clientId));
+    for (const k of kind ? [kind] : (["yt", "gd"] as TokenKind[])) sessionStorage.removeItem(tokenKey(clientId, k));
   } catch {
     /* ignore */
   }
@@ -97,32 +96,30 @@ export function isValidClientId(id: string) {
 }
 
 /** Opens Google's consent popup (or reuses the grant silently) and returns an access token. */
-export async function requestToken(clientId: string, scopes: string[], loginHint?: string): Promise<string> {
+export async function requestToken(clientId: string, kind: TokenKind, loginHint?: string): Promise<string> {
   if (!isValidClientId(clientId)) throw new YouTubeError("The OAuth Client ID looks wrong. It should end with .apps.googleusercontent.com");
+  const scopes = SCOPES[kind];
   const google = await waitForGis();
   return new Promise((resolve, reject) => {
     const client = google.accounts.oauth2.initTokenClient({
       client_id: clientId.trim(),
       scope: scopes.join(" "),
-      include_granted_scopes: true,
+      // Never merge in earlier grants — that would mix YouTube and Drive scopes again.
+      include_granted_scopes: false,
       callback: (r) => {
         if (r.error || !r.access_token) {
           reject(new YouTubeError(r.error_description || r.error || "Google did not return a token."));
           return;
         }
         const granted = (r.scope ?? "").split(" ");
-        const missing = scopes.filter((s) => !granted.includes(s));
+        if (scopes.some((s) => !granted.includes(s))) {
+          reject(new YouTubeError("Some permissions were not allowed. Click the button again and tick every box on Google's screen.", 0, "scopesMissing"));
+          return;
+        }
         try {
-          sessionStorage.setItem(
-            tokenKey(clientId),
-            JSON.stringify({ token: r.access_token, exp: Date.now() + (r.expires_in ?? 3599) * 1000, scope: r.scope ?? "" }),
-          );
+          sessionStorage.setItem(tokenKey(clientId, kind), JSON.stringify({ token: r.access_token, exp: Date.now() + (r.expires_in ?? 3599) * 1000 }));
         } catch {
           /* private mode: token still works for this call */
-        }
-        if (missing.length) {
-          reject(new YouTubeError("Some permissions were not allowed. Click connect again and tick every box on Google's screen.", 0, "scopesMissing"));
-          return;
         }
         resolve(r.access_token);
       },
@@ -130,7 +127,7 @@ export async function requestToken(clientId: string, scopes: string[], loginHint
         reject(
           new YouTubeError(
             e.type === "popup_closed"
-              ? "The Google window was closed before finishing."
+              ? "The Google window was closed before finishing. If Google said “Access blocked”, add your Gmail as a Test user (YouTube setup, step 4)."
               : e.type === "popup_failed_to_open"
                 ? "The browser blocked the Google popup. Allow popups for this site and try again."
                 : e.message || "Google sign-in failed.",
@@ -142,9 +139,11 @@ export async function requestToken(clientId: string, scopes: string[], loginHint
 }
 
 export function revokeToken(clientId: string) {
-  const token = getStoredToken(clientId);
+  for (const k of ["yt", "gd"] as TokenKind[]) {
+    const token = getStoredToken(clientId, k);
+    if (token) window.google?.accounts.oauth2.revoke(token);
+  }
   clearStoredToken(clientId);
-  if (token) window.google?.accounts.oauth2.revoke(token);
 }
 
 // ---------- Errors ----------

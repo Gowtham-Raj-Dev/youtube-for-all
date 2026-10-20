@@ -92,7 +92,8 @@ export default function Queue() {
 
   const uploadOne = async (item: Item) => {
     try {
-      await yt.ensureToken(item.file?.storage === "drive");
+      await yt.ensureToken();
+      if (item.file?.storage === "drive") await yt.ensureDriveToken();
     } catch (e) {
       return toast("error", (e as Error).message);
     }
@@ -140,7 +141,7 @@ export default function Queue() {
             With Autopilot you can add 100s of videos and they go out on schedule even when your PC is off.
           </Alert>
         ) : !yt.driveAllowed ? (
-          <Alert tone="warn" title="Reconnect to see live status" action={<Button size="sm" variant="primary" onClick={() => yt.connect(true).catch((e) => toast("error", e.message))}>Connect</Button>}>
+          <Alert tone="warn" title="Reconnect to see live status" action={<Button size="sm" variant="primary" onClick={() => yt.connectDrive().catch((e) => toast("error", e.message))}>Connect</Button>}>
             Autopilot keeps working in the background. Connect to sync its progress here.
           </Alert>
         ) : autopilot.running ? (

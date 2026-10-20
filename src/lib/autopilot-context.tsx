@@ -58,7 +58,7 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
     if (!config || !yt.driveAllowed) return;
     setSyncing(true);
     try {
-      const token = await yt.ensureToken(true);
+      const token = await yt.ensureDriveToken();
       const [rows, st] = await Promise.all([readQueue(token, config), readStatus(token, config)]);
       setStatus(st);
       const byId = new Map(rows.map((r) => [r.id, r]));
@@ -101,7 +101,7 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
   const queue: AutopilotState["queue"] = useCallback(
     async (base, video, thumb, onProgress) => {
       if (!config) throw new Error("Set up Autopilot in Settings first.");
-      const token = await yt.ensureToken(true);
+      const token = await yt.ensureDriveToken();
       const id = newItemId();
       const fileId = await uploadToDrive(token, config.folderId, video, `${id}-${video.name}`, (f) => onProgress(f * (thumb ? 0.97 : 1)));
       const thumbId = thumb ? await uploadToDrive(token, config.folderId, thumb, `${id}-thumb-${thumb.name}`, () => {}) : null;
@@ -136,7 +136,7 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
     async (item: Item, patch: Partial<Item>) => {
       const next = { ...item, ...patch, status: "queued" as const, error: null };
       if (config && item.file?.storage === "drive") {
-        const token = await yt.ensureToken(true);
+        const token = await yt.ensureDriveToken();
         await updateQueueRow(token, config, next);
       }
       await patchItem(user.uid, item.id, { ...patch, status: "queued", error: null });
@@ -147,7 +147,7 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
   const remove = useCallback(
     async (item: Item) => {
       if (config && item.file?.storage === "drive") {
-        const token = await yt.ensureToken(true);
+        const token = await yt.ensureDriveToken();
         await deleteQueueRow(token, config, item.id);
         await trashDriveFile(token, item.file.path);
         if (item.thumb) await trashDriveFile(token, item.thumb.path);

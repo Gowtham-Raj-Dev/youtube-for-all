@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { ArrowUpRight, Box, Download, Film, Gamepad2, Heart, Images, Link2, Menu, Smartphone, X } from "lucide-react";
+import { ArrowUpRight, Box, Download, Film, Gamepad2, Images, Link2, Menu, Smartphone, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
+import { HeartButton } from "./HeartButton";
 import { Logo, ThemeToggle } from "./Layout";
 import { Button, cx } from "./ui";
 
@@ -26,10 +27,18 @@ export function CodeLoveLogo({ className }: { className?: string }) {
   );
 }
 
+/** The standard CodeLove credit line, shared by every CodeLove site's footer. */
 export function MadeBy({ className }: { className?: string }) {
   return (
-    <span className={cx("inline-flex items-center gap-1", className)}>
-      Made with <Heart className="size-3.5 fill-accent text-accent" /> by <b className="font-semibold text-fg">Gowtham</b>
+    <span className={cx("inline-flex flex-wrap items-center justify-center gap-1.5", className)}>
+      Built with <HeartButton /> by{" "}
+      <a href="https://gowtham.codelove.in" target="_blank" rel="noopener noreferrer" className="font-medium text-fg transition hover:text-accent">
+        Gowtham
+      </a>
+      <span className="hidden text-muted/50 sm:inline">•</span>
+      <a href={CODELOVE} target="_blank" rel="noopener noreferrer" className="font-medium text-fg transition hover:text-accent">
+        CodeLove
+      </a>
     </span>
   );
 }

@@ -3,7 +3,7 @@ import { Link, Navigate, useLocation } from "react-router";
 import { ArrowLeft, Bot, CalendarClock, Layers, ShieldCheck } from "lucide-react";
 import { signInWithGoogle, useAuth } from "../lib/auth";
 import { Logo, ThemeToggle } from "../components/Layout";
-import { CodeLoveLogo } from "../components/Site";
+import { CodeLoveLogo, MadeBy } from "../components/Site";
 import { Alert, Spinner } from "../components/ui";
 
 const POINTS = [
@@ -130,7 +130,10 @@ export default function Login() {
         </div>
 
         <div className="relative flex items-center justify-between gap-4 px-5 py-4 text-xs text-faint sm:px-8">
-          <Link to="/privacy" className="hover:text-fg">Privacy</Link>
+          <span className="flex items-center gap-3">
+            <Link to="/privacy" className="hover:text-fg">Privacy</Link>
+            <MadeBy />
+          </span>
           <span className="flex items-center gap-2">
             A product of <CodeLoveLogo className="h-6" />
           </span>

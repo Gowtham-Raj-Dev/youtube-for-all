@@ -110,6 +110,28 @@ body {
 
 html { scroll-behavior: smooth; }
 
+/* Tailwind v4 resets buttons to the default cursor — show a hand on everything clickable. */
+a[href],
+button:not(:disabled),
+[role="button"],
+summary,
+select:not(:disabled),
+label:has(> input[type="radio"]),
+label:has(> input[type="checkbox"]),
+label:has(> input[type="file"]),
+input[type="radio"],
+input[type="checkbox"],
+input[type="file"],
+input[type="datetime-local"],
+input[type="time"] {
+  cursor: pointer;
+}
+button:disabled,
+select:disabled,
+input:disabled {
+  cursor: not-allowed;
+}
+
 .grid-bg {
   background-image:
     linear-gradient(to right, color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px),

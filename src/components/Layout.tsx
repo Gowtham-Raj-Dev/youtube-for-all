@@ -6,6 +6,7 @@ import {
   CalendarClock,
   ChevronDown,
   Clapperboard,
+  Heart,
   Home,
   LayoutDashboard,
   ListVideo,
@@ -90,12 +91,20 @@ export function ThemeToggle() {
 
 /** Small CodeLove credit for the app's bottom corner. */
 function CodeLoveCredit({ className }: { className?: string }) {
+  // Kept local (not Site's MadeBy) because Site imports from this file.
   return (
-    <a href="https://codelove.in" target="_blank" rel="noreferrer" className={cx("flex items-center gap-2 text-[10px] text-faint transition hover:text-muted", className)}>
-      A product of
-      <img src="/brand/codelove-footer-on-dark.png" alt="codelove.in" className="only-dark h-5 w-auto" />
-      <img src="/brand/codelove-footer-on-light.png" alt="codelove.in" className="only-light h-5 w-auto" />
-    </a>
+    <div className={cx("flex items-center justify-between gap-2 text-[10px] text-faint", className)}>
+      <span className="flex items-center gap-1">
+        Made with <Heart className="size-3 fill-accent text-accent" /> by
+        <a href="https://gowtham.codelove.in" target="_blank" rel="noreferrer" className="font-semibold text-muted hover:text-accent">
+          Gowtham
+        </a>
+      </span>
+      <a href="https://codelove.in" target="_blank" rel="noreferrer" className="flex items-center gap-1.5 transition hover:text-muted" title="A product of codelove.in">
+        <img src="/brand/codelove-footer-on-dark.png" alt="codelove.in" className="only-dark h-5 w-auto" />
+        <img src="/brand/codelove-footer-on-light.png" alt="codelove.in" className="only-light h-5 w-auto" />
+      </a>
+    </div>
   );
 }
 
@@ -291,7 +300,7 @@ export default function Layout() {
             </span>
           </span>
         </Link>
-        <CodeLoveCredit className="justify-end px-1" />
+        <CodeLoveCredit className="px-1" />
       </div>
     </>
   );

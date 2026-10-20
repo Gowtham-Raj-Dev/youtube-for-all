@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { ArrowUpRight, Box, Download, Film, Gamepad2, Images, Link2, Menu, X } from "lucide-react";
+import { ArrowUpRight, Box, Download, Film, Gamepad2, Heart, Images, Link2, Menu, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { Logo, ThemeToggle } from "./Layout";
 import { Button, cx } from "./ui";
@@ -22,6 +22,19 @@ export function CodeLoveLogo({ className }: { className?: string }) {
       <img src="/brand/codelove-footer-on-dark.png" alt="codelove.in" className="only-dark h-full w-auto" />
       <img src="/brand/codelove-footer-on-light.png" alt="codelove.in" className="only-light h-full w-auto" />
     </a>
+  );
+}
+
+export const AUTHOR_URL = "https://gowtham.codelove.in";
+
+export function MadeBy({ className }: { className?: string }) {
+  return (
+    <span className={cx("inline-flex items-center gap-1", className)}>
+      Made with <Heart className="size-3.5 fill-accent text-accent" /> by
+      <a href={AUTHOR_URL} target="_blank" rel="noreferrer" className="font-semibold text-fg underline-offset-2 hover:text-accent hover:underline">
+        Gowtham
+      </a>
+    </span>
   );
 }
 
@@ -137,7 +150,12 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-12 flex flex-col-reverse items-center justify-between gap-4 border-t border-line pt-6 sm:flex-row">
-          <span className="text-xs text-faint">© {year} UTubeFlow · Not affiliated with YouTube or Google</span>
+          <span className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-faint">
+            <span>© {year} UTubeFlow</span>
+            <span>·</span>
+            <MadeBy />
+            <span className="hidden sm:inline">· Not affiliated with YouTube or Google</span>
+          </span>
           <span className="flex items-center gap-2.5 text-xs text-faint">
             A product of <CodeLoveLogo className="h-7" />
           </span>

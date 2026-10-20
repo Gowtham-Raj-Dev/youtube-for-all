@@ -36,11 +36,7 @@ const NAV = [
 export function Logo({ className }: { className?: string }) {
   return (
     <div className={cx("flex items-center gap-2.5", className)}>
-      <div className="grad-bg grid size-9 place-items-center rounded-xl shadow-lg shadow-accent/30">
-        <svg viewBox="0 0 24 24" className="size-4 fill-white">
-          <path d="M8 5v14l11-7z" />
-        </svg>
-      </div>
+      <img src="/favicon.svg" alt="" className="size-9 rounded-xl shadow-lg shadow-accent/30" />
       <span className="text-lg font-bold tracking-tight">{APP_NAME}</span>
     </div>
   );

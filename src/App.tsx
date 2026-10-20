@@ -7,6 +7,7 @@ import { AutopilotProvider } from "./lib/autopilot-context";
 import { Spinner, ToastProvider } from "./components/ui";
 import { firebaseConfigured } from "./config";
 import Layout from "./components/Layout";
+import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import UploadPage from "./pages/Upload";
@@ -62,6 +63,7 @@ export default function App() {
       <ToastProvider>
         <BrowserRouter>
           <Routes>
+            <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route element={<RequireAuth />}>
@@ -75,7 +77,7 @@ export default function App() {
                 <Route path="/guide" element={<Guide />} />
               </Route>
             </Route>
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
       </ToastProvider>

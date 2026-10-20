@@ -121,7 +121,7 @@ function HeroVisual() {
 
       {/* Floating Short preview */}
       <div className="animate-float absolute -top-10 -right-3 hidden w-24 sm:block lg:-right-14 xl:-right-20">
-        <div className="relative aspect-[9/16] overflow-hidden rounded-2xl border-4 border-card bg-gradient-to-br from-accent via-[#d63384] to-accent-2 shadow-2xl shadow-black/40">
+        <div className="relative aspect-[9/16] overflow-hidden rounded-2xl border-4 border-card bg-gradient-to-br from-[#6ee7b7] via-accent to-accent-2 shadow-2xl shadow-black/40">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,.35),transparent_45%)]" />
           <div className="absolute inset-0 grid place-items-center">
             <span className="grid size-10 place-items-center rounded-full bg-white/25 backdrop-blur">
@@ -193,7 +193,7 @@ function AutopilotVisual() {
         return (
           <div key={label as string} className="contents">
             <div className="flex flex-col items-center gap-1.5">
-              <span className={cx("grid size-12 place-items-center rounded-2xl", i === 1 ? "grad-bg text-white shadow-lg shadow-accent/30" : "border border-line bg-bg-soft text-muted")}>
+              <span className={cx("grid size-12 place-items-center rounded-2xl", i === 1 ? "grad-bg text-on-accent shadow-lg shadow-accent/30" : "border border-line bg-bg-soft text-muted")}>
                 <I className="size-5" />
               </span>
               <span className="text-[11px] text-muted">{label as string}</span>
@@ -256,7 +256,7 @@ export default function Home() {
         <div className="relative mx-auto grid max-w-6xl items-center gap-16 px-4 pt-14 pb-24 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:pt-20 lg:pb-32">
           <div className="fade-up">
             <Link to="/login" className="group inline-flex items-center gap-2 rounded-full border border-line bg-card/80 py-1 pr-3 pl-1 text-xs font-medium text-muted backdrop-blur transition hover:border-accent/40">
-              <span className="grad-bg rounded-full px-2 py-0.5 text-[10px] font-bold text-white">NEW</span>
+              <span className="grad-bg rounded-full px-2 py-0.5 text-[10px] font-bold text-on-accent">NEW</span>
               Autopilot — post even with your PC off
               <ArrowRight className="size-3.5 transition group-hover:translate-x-0.5" />
             </Link>
@@ -331,7 +331,7 @@ export default function Home() {
             <div className="reveal rounded-3xl border border-line bg-card p-7 lg:col-span-2">
               <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
                 <div className="sm:w-1/2">
-                  <span className="grad-bg grid size-11 place-items-center rounded-xl text-white">
+                  <span className="grad-bg grid size-11 place-items-center rounded-xl text-on-accent">
                     <Bot className="size-5" />
                   </span>
                   <h3 className="mt-5 text-xl font-bold">Autopilot — PC off, still posting</h3>
@@ -380,7 +380,7 @@ export default function Home() {
             <div className="absolute top-7 right-[16%] left-[16%] hidden h-px bg-gradient-to-r from-accent via-accent-2 to-accent lg:block" />
             {STEPS.map(({ icon: Icon, title, text }, i) => (
               <li key={title} className="reveal relative text-center" style={{ transitionDelay: `${i * 120}ms` }}>
-                <span className="grad-bg relative mx-auto grid size-14 place-items-center rounded-2xl text-white shadow-xl shadow-accent/30">
+                <span className="grad-bg relative mx-auto grid size-14 place-items-center rounded-2xl text-on-accent shadow-xl shadow-accent/30">
                   <Icon className="size-6" />
                   <span className="absolute -top-2 -right-2 grid size-6 place-items-center rounded-full border-2 border-bg-soft bg-card text-xs font-bold text-fg">{i + 1}</span>
                 </span>
@@ -407,7 +407,7 @@ export default function Home() {
             ].map(({ icon: Icon, title, text }, i, all) => (
               <div key={title} className="contents">
                 <div className="reveal rounded-3xl border border-line bg-card p-6" style={{ transitionDelay: `${i * 100}ms` }}>
-                  <span className={cx("grid size-11 place-items-center rounded-xl", i === all.length - 1 ? "bg-[#ff0000]/10 text-[#ff3b3b]" : i === 2 ? "grad-bg text-white" : "bg-accent-soft text-accent")}>
+                  <span className={cx("grid size-11 place-items-center rounded-xl", i === all.length - 1 ? "bg-[#ff0000]/10 text-[#ff3b3b]" : i === 2 ? "grad-bg text-on-accent" : "bg-accent-soft text-accent")}>
                     <Icon className="size-5" />
                   </span>
                   <h3 className="mt-4 font-bold">{title}</h3>
@@ -463,9 +463,9 @@ export default function Home() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(255,255,255,0.3),transparent_45%),radial-gradient(circle_at_90%_90%,rgba(0,0,0,0.25),transparent_50%)]" />
           <div className="relative">
             <img src="/favicon.svg" alt="" className="mx-auto size-16 rounded-2xl shadow-2xl ring-4 ring-white/20" />
-            <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-white sm:text-5xl">Make it once. Let it post itself.</h2>
-            <p className="mx-auto mt-4 max-w-xl text-lg text-white/85">Batch your content on the weekend, and let UTubeFlow handle the daily uploads.</p>
-            <Link to="/login" className="mt-9 inline-flex h-13 items-center gap-2 rounded-xl bg-white px-7 font-bold text-[#15151d] shadow-xl transition hover:scale-[1.03]">
+            <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-on-accent sm:text-5xl">Make it once. Let it post itself.</h2>
+            <p className="mx-auto mt-4 max-w-xl text-lg text-on-accent/80">Batch your content on the weekend, and let UTubeFlow handle the daily uploads.</p>
+            <Link to="/login" className="mt-9 inline-flex h-13 items-center gap-2 rounded-xl bg-[#04140e] px-7 font-bold text-white shadow-xl transition hover:scale-[1.03]">
               Start free <ArrowRight className="size-4.5" />
             </Link>
           </div>

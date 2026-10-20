@@ -29,7 +29,7 @@ export function Button({
         size === "sm" && "h-8 px-3 text-xs",
         size === "md" && "h-10 px-4 text-sm",
         size === "lg" && "h-12 px-6 text-base",
-        variant === "primary" && "grad-bg text-white shadow-lg shadow-accent/20 hover:brightness-110 active:brightness-95",
+        variant === "primary" && "grad-bg text-on-accent shadow-lg shadow-accent/20 hover:brightness-110 active:brightness-95",
         variant === "secondary" && "bg-card border border-line text-fg hover:bg-card-hover hover:border-faint/40",
         variant === "ghost" && "text-muted hover:text-fg hover:bg-card-hover",
         variant === "danger" && "bg-danger/10 text-danger border border-danger/30 hover:bg-danger/20",

@@ -141,7 +141,7 @@ export default function Schedule() {
                   <div className="text-sm font-semibold">{day.toLocaleDateString([], { weekday: "long" })}</div>
                   <div className="text-xs text-muted">{day.toLocaleDateString([], { day: "numeric", month: "long" })}</div>
                 </div>
-                {today && <Badge className="grad-bg text-white">Today</Badge>}
+                {today && <Badge className="grad-bg text-on-accent">Today</Badge>}
               </div>
               {rows.length === 0 ? (
                 <p className="px-4 py-6 text-center text-sm text-faint">No slots left today</p>

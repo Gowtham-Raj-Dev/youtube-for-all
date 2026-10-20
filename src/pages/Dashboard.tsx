@@ -183,7 +183,7 @@ export default function Dashboard() {
             {steps.map((s, i) => (
               <li key={s.label}>
                 <Link to={s.to} className={cx("flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-sm transition", s.done ? "border-line text-faint" : "border-line bg-bg-soft hover:border-accent/40")}>
-                  <span className={cx("grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold", s.done ? "bg-ok/15 text-ok" : "grad-bg text-white")}>
+                  <span className={cx("grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold", s.done ? "bg-ok/15 text-ok" : "grad-bg text-on-accent")}>
                     {s.done ? <Check className="size-3.5" /> : i + 1}
                   </span>
                   <span className={cx("truncate", s.done && "line-through")}>{s.label}</span>

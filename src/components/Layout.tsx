@@ -159,7 +159,7 @@ function UserMenu() {
         {user.photoURL ? (
           <img src={user.photoURL} alt="" className="size-8 rounded-full ring-2 ring-line" referrerPolicy="no-referrer" />
         ) : (
-          <span className="grad-bg grid size-8 place-items-center rounded-full text-sm font-bold text-white">{initial}</span>
+          <span className="grad-bg grid size-8 place-items-center rounded-full text-sm font-bold text-on-accent">{initial}</span>
         )}
         <ChevronDown className="size-3.5 text-muted" />
       </button>
@@ -251,7 +251,7 @@ export default function Layout() {
                     {isActive && <span className="grad-bg absolute top-2 bottom-2 left-0 w-1 rounded-r-full" />}
                     <Icon className={cx("size-4.5", isActive && "text-accent")} />
                     <span className="flex-1">{label}</span>
-                    {badge && queued > 0 && <span className="grad-bg rounded-full px-2 py-0.5 text-[11px] font-semibold text-white">{queued}</span>}
+                    {badge && queued > 0 && <span className="grad-bg rounded-full px-2 py-0.5 text-[11px] font-semibold text-on-accent">{queued}</span>}
                   </>
                 )}
               </NavLink>
@@ -270,7 +270,7 @@ export default function Layout() {
         </Link>
         <Link
           to="/upload/short"
-          className="grad-bg mb-6 flex h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold text-white shadow-lg shadow-accent/25 transition hover:brightness-110"
+          className="grad-bg mb-6 flex h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold text-on-accent shadow-lg shadow-accent/25 transition hover:brightness-110"
         >
           <Plus className="size-4.5" /> New upload
         </Link>
@@ -347,7 +347,7 @@ export default function Layout() {
           <NavLink key={to} to={to} className={({ isActive }) => cx("relative flex flex-col items-center gap-1 py-2.5 text-[10px] font-medium", isActive ? "text-accent" : "text-muted")}>
             <Icon className="size-5" />
             {short}
-            {badge && queued > 0 && <span className="grad-bg absolute top-1.5 right-[calc(50%-18px)] rounded-full px-1.5 text-[9px] font-semibold text-white">{queued}</span>}
+            {badge && queued > 0 && <span className="grad-bg absolute top-1.5 right-[calc(50%-18px)] rounded-full px-1.5 text-[9px] font-semibold text-on-accent">{queued}</span>}
           </NavLink>
         ))}
       </nav>

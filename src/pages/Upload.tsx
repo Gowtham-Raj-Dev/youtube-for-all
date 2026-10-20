@@ -291,7 +291,7 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
                   dragOver ? "border-accent bg-accent-soft" : "border-line hover:border-faint/50 hover:bg-card-hover",
                 )}
               >
-                <div className="grad-bg mb-4 grid size-14 place-items-center rounded-2xl text-white shadow-lg shadow-accent/30">
+                <div className="grad-bg mb-4 grid size-14 place-items-center rounded-2xl text-on-accent shadow-lg shadow-accent/30">
                   <UploadCloud className="size-7" />
                 </div>
                 <div className="font-semibold">Drop your {isShort ? "Shorts" : "videos"} here</div>

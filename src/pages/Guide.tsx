@@ -23,7 +23,7 @@ function Step({ n, title, done, children }: { n: number; title: string; done?: b
   return (
     <li className="relative pb-8 pl-12 last:pb-0">
       <span className="absolute top-9 bottom-0 left-[15px] w-px bg-line" />
-      <span className={cx("absolute top-0 left-0 grid size-8 place-items-center rounded-full text-sm font-bold text-white", done ? "bg-ok" : "grad-bg")}>{done ? "✓" : n}</span>
+      <span className={cx("absolute top-0 left-0 grid size-8 place-items-center rounded-full text-sm font-bold text-on-accent", done ? "bg-ok" : "grad-bg")}>{done ? "✓" : n}</span>
       <h3 className="pt-1 font-semibold">{title}</h3>
       <div className="mt-2 space-y-3 text-sm leading-relaxed text-muted [&_b]:text-fg">{children}</div>
     </li>

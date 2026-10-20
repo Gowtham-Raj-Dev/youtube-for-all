@@ -1,50 +1,61 @@
 @import "tailwindcss";
 
-/* Theme tokens. Dark is the default; light applies via system preference or the toggle. */
+/* Theme tokens — "Emerald Mint". Dark is the default; light applies via system preference or the toggle. */
 :root {
-  --bg: #0b0b10;
-  --bg-soft: #111118;
-  --card: #15151d;
-  --card-hover: #1b1b25;
-  --border: #262633;
-  --text: #ececf3;
-  --muted: #9a9aad;
-  --faint: #6b6b80;
-  --accent: #ff3b5c;
-  --accent-2: #8b5cf6;
-  --accent-soft: rgba(255, 59, 92, 0.12);
-  --ok: #22c55e;
+  --bg: #060c0a;
+  --bg-soft: #0a1310;
+  --card: #0e1915;
+  --card-hover: #13211c;
+  --border: #1c2d27;
+  --text: #e9f6f0;
+  --muted: #92a69e;
+  --faint: #62756d;
+  --accent: #34d399;
+  --accent-2: #059669;
+  --accent-soft: rgba(52, 211, 153, 0.12);
+  --on-accent: #03140d;
+  --ok: #4ade80;
   --warn: #f59e0b;
-  --info: #3b82f6;
-  --danger: #ef4444;
+  --info: #38bdf8;
+  --danger: #f43f5e;
   color-scheme: dark;
 }
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
-    --bg: #f6f6f9;
-    --bg-soft: #eeeef3;
+    --bg: #f3f8f6;
+    --bg-soft: #e9f2ee;
     --card: #ffffff;
-    --card-hover: #f8f8fb;
-    --border: #e3e3ea;
-    --text: #15151d;
-    --muted: #5e5e70;
-    --faint: #8a8a9c;
-    --accent-soft: rgba(255, 59, 92, 0.1);
+    --card-hover: #f6faf8;
+    --border: #d9e6e0;
+    --text: #0b1a14;
+    --muted: #4c6158;
+    --faint: #7b8f86;
+    --accent: #059669;
+    --accent-2: #047857;
+    --accent-soft: rgba(5, 150, 105, 0.1);
+    --on-accent: #ffffff;
+    --ok: #16a34a;
+    --info: #0284c7;
     color-scheme: light;
   }
 }
 
 :root[data-theme="light"] {
-  --bg: #f6f6f9;
-  --bg-soft: #eeeef3;
+  --bg: #f3f8f6;
+  --bg-soft: #e9f2ee;
   --card: #ffffff;
-  --card-hover: #f8f8fb;
-  --border: #e3e3ea;
-  --text: #15151d;
-  --muted: #5e5e70;
-  --faint: #8a8a9c;
-  --accent-soft: rgba(255, 59, 92, 0.1);
+  --card-hover: #f6faf8;
+  --border: #d9e6e0;
+  --text: #0b1a14;
+  --muted: #4c6158;
+  --faint: #7b8f86;
+  --accent: #059669;
+  --accent-2: #047857;
+  --accent-soft: rgba(5, 150, 105, 0.1);
+  --on-accent: #ffffff;
+  --ok: #16a34a;
+  --info: #0284c7;
   color-scheme: light;
 }
 
@@ -60,6 +71,7 @@
   --color-accent: var(--accent);
   --color-accent-2: var(--accent-2);
   --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-info: var(--info);
@@ -84,6 +96,7 @@ body {
 
 .grad-bg {
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: var(--on-accent);
 }
 
 /* Theme-specific images (e.g. the CodeLove logo): dark is the default theme. */

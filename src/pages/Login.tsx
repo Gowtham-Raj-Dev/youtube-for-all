@@ -55,13 +55,13 @@ export default function Login() {
   return (
     <div className="flex h-dvh overflow-hidden">
       {/* Brand panel (large screens) */}
-      <aside className="relative hidden w-[46%] max-w-2xl flex-col justify-between overflow-hidden bg-[#0d0d14] p-10 text-white lg:flex xl:p-14">
-        <div className="pointer-events-none absolute -top-32 -left-32 size-[30rem] rounded-full bg-[#ff3b5c]/25 blur-3xl" />
-        <div className="pointer-events-none absolute -right-40 -bottom-40 size-[30rem] rounded-full bg-[#7c3aed]/25 blur-3xl" />
+      <aside className="relative hidden w-[46%] max-w-2xl flex-col justify-between overflow-hidden bg-[#05100c] p-10 text-white lg:flex xl:p-14">
+        <div className="pointer-events-none absolute -top-32 -left-32 size-[30rem] rounded-full bg-[#34d399]/20 blur-3xl" />
+        <div className="pointer-events-none absolute -right-40 -bottom-40 size-[30rem] rounded-full bg-[#059669]/25 blur-3xl" />
         <Link to="/" className="relative flex items-center gap-2.5">
           <img src="/favicon.svg" alt="" className="size-9" />
           <span className="text-lg font-extrabold">
-            UTube<span className="bg-gradient-to-r from-[#ff3b5c] to-[#a78bfa] bg-clip-text text-transparent">Flow</span>
+            UTube<span className="bg-gradient-to-r from-[#6ee7b7] to-[#34d399] bg-clip-text text-transparent">Flow</span>
           </span>
         </Link>
 
@@ -69,7 +69,7 @@ export default function Login() {
           <h1 className="text-4xl leading-tight font-extrabold tracking-tight xl:text-5xl">
             Your channel,
             <br />
-            <span className="bg-gradient-to-r from-[#ff3b5c] to-[#7c3aed] bg-clip-text text-transparent">on autopilot.</span>
+            <span className="bg-gradient-to-r from-[#6ee7b7] to-[#10b981] bg-clip-text text-transparent">on autopilot.</span>
           </h1>
           <p className="mt-4 max-w-md text-white/65">Add your videos once. UTubeFlow publishes them on time, every day — free.</p>
           <ul className="mt-8 space-y-3.5">

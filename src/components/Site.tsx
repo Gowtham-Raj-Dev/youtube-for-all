@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { ArrowUpRight, Box, Download, Film, Gamepad2, Heart, Images, Link2, Menu, X } from "lucide-react";
+import { ArrowUpRight, Box, Download, Film, Gamepad2, Heart, Images, Link2, Menu, Smartphone, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { Logo, ThemeToggle } from "./Layout";
 import { Button, cx } from "./ui";
@@ -14,6 +14,7 @@ export const PLATFORMS = [
   { name: "Video to GIF", text: "Turn any clip into a GIF", href: "https://videotogif.codelove.in", icon: Film },
   { name: "Video to Images", text: "Extract frames from videos", href: "https://videotoimages.codelove.in", icon: Images },
   { name: "Games", text: "Free games in your browser", href: "https://games.codelove.in", icon: Gamepad2 },
+  { name: "Java Games", text: "Old Java phone games, free in your browser", href: "https://javagames-emu.codelove.in", icon: Smartphone },
 ];
 
 export function CodeLoveLogo({ className }: { className?: string }) {
@@ -126,9 +127,10 @@ export function SiteFooter() {
 
         <div className="mt-12">
           <h3 className="text-xs font-semibold tracking-wider text-faint uppercase">More free platforms</h3>
-          <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Flex, not grid, so a short last row sits centered. */}
+          <ul className="mt-4 flex flex-wrap justify-center gap-3">
             {PLATFORMS.map(({ name, text, href, icon: Icon }) => (
-              <li key={name}>
+              <li key={name} className="w-full sm:w-[calc((100%-0.75rem)/2)] lg:w-[calc((100%-1.5rem)/3)]">
                 <a href={href} target="_blank" rel="noreferrer" className="group flex items-center gap-3 rounded-xl border border-line bg-card p-3 transition hover:-translate-y-0.5 hover:border-accent/40">
                   <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent">
                     <Icon className="size-4.5" />

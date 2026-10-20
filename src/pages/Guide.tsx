@@ -1,10 +1,12 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
-import { ChevronDown, ExternalLink, HardDrive, HelpCircle, Youtube } from "lucide-react";
+import { Bot, ChevronDown, ExternalLink, HelpCircle, Youtube } from "lucide-react";
 import { useUser } from "../lib/auth";
 import { useSettings } from "../lib/settings";
 import { useYouTube } from "../lib/youtube-context";
-import { corsCommand, siteOrigin, storageRules } from "../lib/snippets";
+import { useAutopilot } from "../lib/autopilot-context";
+import { ENABLE_APIS_URL, SCRIPT_SETTINGS_URL } from "../lib/autopilot";
+import { siteOrigin } from "../lib/snippets";
 import { Alert, Badge, Button, Card, Code, cx, PageHeader } from "../components/ui";
 import { CopyBox } from "../components/CopyBox";
 
@@ -21,9 +23,7 @@ function Step({ n, title, done, children }: { n: number; title: string; done?: b
   return (
     <li className="relative pb-8 pl-12 last:pb-0">
       <span className="absolute top-9 bottom-0 left-[15px] w-px bg-line" />
-      <span className={cx("absolute top-0 left-0 grid size-8 place-items-center rounded-full text-sm font-bold", done ? "bg-ok text-white" : "grad-bg text-white")}>
-        {done ? "✓" : n}
-      </span>
+      <span className={cx("absolute top-0 left-0 grid size-8 place-items-center rounded-full text-sm font-bold text-white", done ? "bg-ok" : "grad-bg")}>{done ? "✓" : n}</span>
       <h3 className="pt-1 font-semibold">{title}</h3>
       <div className="mt-2 space-y-3 text-sm leading-relaxed text-muted [&_b]:text-fg">{children}</div>
     </li>
@@ -66,83 +66,76 @@ export default function Guide() {
   const user = useUser();
   const { settings } = useSettings();
   const yt = useYouTube();
+  const autopilot = useAutopilot();
   const loc = useLocation();
   useEffect(() => {
-    if (loc.hash) document.querySelector(loc.hash)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (loc.hash) setTimeout(() => document.querySelector(loc.hash)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   }, [loc.hash]);
 
   const email = user.email ?? "";
 
   return (
     <>
-      <PageHeader title="Setup guide" subtitle="Connect your own YouTube API in about 10 minutes. Do it once — it's free." />
+      <PageHeader title="Setup guide" subtitle="About 10 minutes, once. Everything is free and stays in your own Google account." />
 
       <div className="mb-6">
-        <Alert tone="info" title="Why your own API?">
-          Every Google Cloud project gets a free daily YouTube quota. Using your own project means your uploads never share a limit with anyone else, and only you control access to your channel.
+        <Alert tone="info" title="Why your own Google project?">
+          Every Google Cloud project gets a free daily YouTube quota. Using your own means your uploads never share a limit with anyone, and only you control your channel.
         </Alert>
       </div>
 
       <div className="space-y-6">
-        <Section id="youtube" icon={<Youtube className="size-5" />} title="Part 1 · YouTube API" subtitle="Required for uploading and scheduling." badge={<Badge className="bg-accent-soft text-accent">Required · ~10 min</Badge>}>
+        <Section id="youtube" icon={<Youtube className="size-5" />} title="Part 1 · Connect YouTube" subtitle="Required for uploading and scheduling." badge={<Badge className="bg-accent-soft text-accent">Required · ~8 min</Badge>}>
           <Step n={1} title="Create a Google Cloud project">
             <p>
-              Open <Ext href="https://console.cloud.google.com/projectcreate">Google Cloud → New project</Ext> while signed in with the <b>same Google account that owns your YouTube channel</b>.
+              Open <Ext href="https://console.cloud.google.com/projectcreate">Google Cloud → New project</Ext> signed in with the <b>Google account that owns your YouTube channel</b>.
             </p>
+            <p>Name it anything, e.g. <Code>My YouTube Uploader</Code> → <b>Create</b>. Make sure the new project is selected in the top bar.</p>
+          </Step>
+
+          <Step n={2} title="Enable the APIs">
             <p>
-              Project name: anything, e.g. <Code>My YouTube Uploader</Code> → <b>Create</b>. Wait a few seconds, then make sure the new project is selected in the top bar.
+              Open <Ext href={ENABLE_APIS_URL}>this link</Ext> → check the project name → <b>Next</b> → <b>Enable</b>. It turns on YouTube, Drive, Sheets and Apps Script APIs in one go (the last three are for Autopilot).
             </p>
           </Step>
 
-          <Step n={2} title="Enable YouTube Data API v3">
-            <p>
-              Open <Ext href="https://console.cloud.google.com/apis/library/youtube.googleapis.com">YouTube Data API v3</Ext> and click <b>Enable</b>.
-            </p>
-          </Step>
-
-          <Step n={3} title="Set up the OAuth consent screen">
+          <Step n={3} title="Set up the consent screen">
             <p>
               Open <Ext href="https://console.cloud.google.com/auth/overview">Google Auth Platform</Ext> → <b>Get started</b>.
             </p>
             <ul className="list-disc space-y-1 pl-5">
               <li><b>App name</b>: anything, e.g. <Code>My Uploader</Code>. <b>Support email</b>: your Gmail.</li>
-              <li><b>Audience</b>: <b>External</b>.</li>
-              <li><b>Contact email</b>: your Gmail → agree to the policy → <b>Create</b>.</li>
+              <li><b>Audience</b>: <b>External</b>. <b>Contact email</b>: your Gmail → agree → <b>Create</b>.</li>
             </ul>
             <p>
-              Then open <Ext href="https://console.cloud.google.com/auth/audience">Audience</Ext> → under <b>Test users</b> click <b>Add users</b> → add <Code>{email || "your Gmail"}</Code> → <b>Save</b>.
+              Then <Ext href="https://console.cloud.google.com/auth/audience">Audience</Ext> → <b>Test users</b> → <b>Add users</b> → <Code>{email || "your Gmail"}</Code> → <b>Save</b>.
             </p>
-            <Alert tone="warn">Leave the publishing status as <b>Testing</b>. You don't need Google's app verification because only you use this app.</Alert>
+            <Alert tone="warn">Leave the status as <b>Testing</b>. You don't need Google's verification — only you use this app.</Alert>
           </Step>
 
           <Step n={4} title="Create the OAuth Client ID">
             <p>
-              Open <Ext href="https://console.cloud.google.com/auth/clients/create">Clients → Create client</Ext>.
+              Open <Ext href="https://console.cloud.google.com/auth/clients/create">Clients → Create client</Ext>. <b>Application type</b>: <b>Web application</b>.
             </p>
-            <ul className="list-disc space-y-1 pl-5">
-              <li><b>Application type</b>: <b>Web application</b>. Name: anything.</li>
-              <li>
-                Under <b>Authorized JavaScript origins</b> click <b>Add URI</b> and paste exactly:
-              </li>
-            </ul>
+            <p>Under <b>Authorized JavaScript origins</b> → <b>Add URI</b> → paste exactly:</p>
             <CopyBox value={siteOrigin()} />
             <p>
-              Leave <b>Authorized redirect URIs</b> empty → <b>Create</b>. Copy the <b>Client ID</b> (ends with <Code>.apps.googleusercontent.com</Code>). You don't need the client secret — never share it.
+              Leave redirect URIs empty → <b>Create</b> → copy the <b>Client ID</b> (ends with <Code>.apps.googleusercontent.com</Code>). You don't need the client secret — never share it.
             </p>
             <p className="text-xs text-faint">A new origin can take up to 5 minutes to start working.</p>
           </Step>
 
-          <Step n={5} title="Paste it here and connect" done={!!settings.youtubeClientId && !!yt.channel}>
+          <Step n={5} title="Paste it and connect" done={!!settings.youtubeClientId && !!yt.channel}>
             <p>
-              Go to <Link to="/settings#youtube" className="font-medium text-accent hover:underline">Settings → YouTube</Link>, paste the Client ID → <b>Save</b> → <b>Connect YouTube</b>.
+              <Link to="/settings#youtube" className="font-medium text-accent hover:underline">Settings → YouTube</Link> → paste → <b>Save</b> → <b>Connect YouTube</b>.
             </p>
             <ul className="list-disc space-y-1 pl-5">
-              <li>Pick your Google account. If your channel is a <b>Brand Account</b>, pick the channel itself in the list.</li>
-              <li>You'll see <b>“Google hasn't verified this app”</b> — that's your own app, so click <b>Continue</b>.</li>
-              <li>Allow both permissions (manage/upload videos and view your account) → <b>Continue</b>.</li>
+              <li>Pick your account. For a <b>Brand Account</b> channel, pick the channel itself.</li>
+              <li>On <b>“Google hasn't verified this app”</b> click <b>Continue</b> — it's your own app.</li>
+              <li>Tick every permission → <b>Continue</b>.</li>
             </ul>
             {settings.youtubeClientId && yt.channel ? (
-              <Alert tone="ok">Connected to <b>{yt.channel.title}</b>. You're ready to upload!</Alert>
+              <Alert tone="ok">Connected to <b>{yt.channel.title}</b>.</Alert>
             ) : (
               <Link to="/settings#youtube"><Button variant="primary">Go to Settings</Button></Link>
             )}
@@ -150,55 +143,38 @@ export default function Guide() {
         </Section>
 
         <Section
-          id="storage"
-          icon={<HardDrive className="size-5" />}
-          title="Part 2 · Your Firebase Storage"
-          subtitle="Optional. Only for the Queue across devices. Without it, queued files stay in this browser."
-          badge={<Badge>Optional · ~10 min</Badge>}
+          id="autopilot"
+          icon={<Bot className="size-5" />}
+          title="Part 2 · Autopilot"
+          subtitle="Add many videos once; Google uploads each one on schedule even when your PC is off. Free — uses your Google Drive (15 GB) and Apps Script."
+          badge={<Badge>Recommended · ~3 min</Badge>}
         >
-          <Step n={1} title="Create a Firebase project">
+          <Step n={1} title="Turn on the Apps Script API for your account">
             <p>
-              Open the <Ext href="https://console.firebase.google.com/">Firebase console</Ext> → <b>Create a project</b>. You can pick the Google Cloud project from Part 1 so everything stays in one place. Google Analytics is not needed.
+              Open <Ext href={SCRIPT_SETTINGS_URL}>Apps Script settings</Ext> and switch <b>Google Apps Script API</b> to <b>On</b>. (The APIs from Part 1, Step 2 must also be enabled.)
             </p>
           </Step>
-          <Step n={2} title="Upgrade to the Blaze plan">
+          <Step n={2} title="Allow Google Drive" done={yt.driveAllowed}>
             <p>
-              Storage on new projects needs the <b>Blaze (pay as you go)</b> plan — click <b>Upgrade</b> at the bottom-left and add a card. The free allowance (about <b>5 GB stored</b>) still applies, and this app deletes queued files after upload, so most people pay nothing.
-            </p>
-            <Alert tone="info">Tip: set a budget alert (e.g. ₹100 / $1) while upgrading so you get an email long before any charge.</Alert>
-          </Step>
-          <Step n={3} title="Turn on Storage">
-            <p>
-              <b>Build → Storage → Get started</b>. Choose a <b>US</b> location (e.g. <Code>us-central1</Code> — the free allowance only applies to US regions) and <b>production mode</b>.
+              <Link to="/settings#autopilot" className="font-medium text-accent hover:underline">Settings → Autopilot</Link> → <b>Allow Google Drive</b>. TubeFlow can only see files it creates.
             </p>
           </Step>
-          <Step n={4} title="Paste these Storage rules">
+          <Step n={3} title="Create Autopilot" done={!!autopilot.config}>
             <p>
-              In <b>Storage → Rules</b>, replace everything with this and click <b>Publish</b>. Only your Gmail can read or write:
+              Click <b>Create Autopilot</b>. The app makes a private folder, a queue sheet and the Autopilot script in your account. You never need to open them — everything is managed from TubeFlow.
             </p>
-            <CopyBox block value={storageRules(email)} />
           </Step>
-          <Step n={5} title="Allow this site to read your files (CORS)">
-            <p>
-              Open <Ext href="https://console.cloud.google.com/?cloudshell=true">Google Cloud Shell</Ext> (same project), paste this and press Enter. Replace the bucket name if yours is different (Storage page shows it, without <Code>gs://</Code>).
-            </p>
-            <CopyBox block value={corsCommand(settings.userFirebase?.storageBucket ?? "")} />
+          <Step n={4} title="Activate" done={autopilot.running}>
+            <p>Click <b>Activate Autopilot</b>. In the Google tab that opens:</p>
+            <ul className="list-disc space-y-1 pl-5">
+              <li><b>Review permissions</b> → pick your account.</li>
+              <li><b>“Google hasn't verified this app”</b> → <b>Advanced</b> → <b>Go to TubeFlow Autopilot (unsafe)</b>. It's your own script.</li>
+              <li><b>Allow</b>. You'll see <b>“Autopilot is ON”</b> with green ticks.</li>
+            </ul>
           </Step>
-          <Step n={6} title="Turn on Google sign-in for your project">
+          <Step n={5} title="Check connection">
             <p>
-              <b>Build → Authentication → Get started → Sign-in method → Google → Enable → Save</b>.
-            </p>
-            <p>
-              Then <b>Authentication → Settings → Authorized domains → Add domain</b>:
-            </p>
-            <CopyBox value={window.location.hostname} />
-          </Step>
-          <Step n={7} title="Copy your web config and test" done={!!settings.userFirebase}>
-            <p>
-              <b>Project settings</b> (gear icon) → <b>Your apps</b> → click <b>&lt;/&gt;</b> (Web) → register any nickname → copy the whole <Code>firebaseConfig</Code> block.
-            </p>
-            <p>
-              Paste it in <Link to="/settings#storage" className="font-medium text-accent hover:underline">Settings → Queue storage</Link> → <b>Save config</b> → <b>Sign in & test</b>. All three checks (upload, read, delete) should pass.
+              Back in <Link to="/settings" className="font-medium text-accent hover:underline">Settings</Link>, click <b>Check now</b> at the top. Every line should be green. Then upload Shorts with <b>Schedule</b> — they go to Autopilot automatically.
             </p>
           </Step>
         </Section>
@@ -210,31 +186,39 @@ export default function Guide() {
             <h2 className="text-lg font-semibold">Problems & questions</h2>
           </div>
           <Faq q="“Error 400: redirect_uri_mismatch” or “origin not allowed”">
-            <p>The Authorized JavaScript origin is missing or different. It must be exactly <Code>{siteOrigin()}</Code> — no slash at the end. After saving, wait 5 minutes and try again.</p>
+            <p>The Authorized JavaScript origin is missing or different. It must be exactly <Code>{siteOrigin()}</Code> — no slash at the end. Wait 5 minutes after saving.</p>
           </Faq>
           <Faq q="“Access blocked: app has not completed the Google verification process”">
-            <p>Your Gmail is not in <b>Test users</b>. Add it in <Ext href="https://console.cloud.google.com/auth/audience">Audience → Test users</Ext> (Part 1, Step 3).</p>
+            <p>Your Gmail is not in <b>Test users</b>. Add it in <Ext href="https://console.cloud.google.com/auth/audience">Audience → Test users</Ext>.</p>
           </Faq>
-          <Faq q="How many videos can I upload per day?">
-            <p>The free quota is <b>10,000 units a day</b>; one upload costs <b>1,600</b>, so about <b>6 uploads a day</b>. It resets at midnight Pacific time (12:30 PM IST in summer, 1:30 PM IST in winter). For more, request a quota increase from Google.</p>
+          <Faq q="“User has not enabled the Apps Script API”">
+            <p>Turn it on at <Ext href={SCRIPT_SETTINGS_URL}>script.google.com/home/usersettings</Ext>, wait a minute, then click <b>Create Autopilot</b> again. It continues where it stopped.</p>
+          </Faq>
+          <Faq q="How many videos per day?">
+            <p>
+              The free YouTube quota is about <b>6 uploads a day</b>. Autopilot respects this: add 100 videos with 3 slots a day and they go out over about a month, all by themselves. The quota resets at midnight Pacific time (12:30 PM IST in summer, 1:30 PM IST in winter).
+            </p>
+          </Faq>
+          <Faq q="When does Autopilot upload a video?">
+            <p>It checks every 30 minutes and uploads each video up to a day before its time as a scheduled (private) video. YouTube then makes it public at the exact time you set.</p>
+          </Faq>
+          <Faq q="Do I need to keep the browser open?">
+            <p>
+              Only while your files are being <b>saved to Drive</b> after you click “Add to Autopilot”. After that, close everything. Without Autopilot, keep the tab open until the upload finishes.
+            </p>
           </Faq>
           <Faq q="My uploaded video got locked as private">
             <p>
-              YouTube can restrict videos uploaded from API projects that haven't passed its audit. If that happens, submit the free <Ext href="https://support.google.com/youtube/contact/yt_api_form">YouTube API Services audit form</Ext> for your project. Until then, schedule videos as usual and check them in YouTube Studio.
+              YouTube can restrict videos uploaded through API projects that haven't been audited. If it happens, submit the free <Ext href="https://support.google.com/youtube/contact/yt_api_form">YouTube API Services audit form</Ext>.
             </p>
           </Faq>
-          <Faq q="Why do I have to click “Connect” again every hour?">
-            <p>For safety this app keeps no long-term key — Google gives the browser a 1-hour pass. After it expires, one click reconnects. Scheduled videos are already on YouTube and publish on time without you.</p>
-          </Faq>
-          <Faq q="Do I need to keep my computer on for scheduled videos?">
-            <p>No. With <b>Schedule</b>, the video is uploaded right away as private and YouTube itself makes it public at the chosen time. Only keep the tab open <b>while it uploads</b>.</p>
-          </Faq>
           <Faq q="Custom thumbnail failed">
-            <p>Custom thumbnails need a phone-verified channel. Verify at <Ext href="https://www.youtube.com/verify">youtube.com/verify</Ext>, then set the thumbnail in YouTube Studio.</p>
+            <p>Custom thumbnails need a phone-verified channel: <Ext href="https://www.youtube.com/verify">youtube.com/verify</Ext>.</p>
           </Faq>
           <Faq q="Is my channel safe? What do you store?">
             <p>
-              We store only your sign-in, settings and the list of videos you queued or scheduled. Your YouTube access stays in your browser for 1 hour, and video files stay in your own storage. You can remove access any time at <Ext href="https://myaccount.google.com/permissions">Google Account → Third-party access</Ext>.
+              We store only your sign-in, settings and the list of your videos (titles, times). Video files stay in your Drive. YouTube access lives in your browser for 1 hour and in your own Autopilot script. Remove access any time at{" "}
+              <Ext href="https://myaccount.google.com/permissions">Google Account → Third-party access</Ext>.
             </p>
           </Faq>
         </Card>

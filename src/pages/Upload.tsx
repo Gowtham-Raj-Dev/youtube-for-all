@@ -1,20 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { CalendarClock, Clapperboard, ImagePlus, ListPlus, Rocket, Smartphone, Trash2, UploadCloud } from "lucide-react";
+import { Bot, CalendarClock, Clapperboard, ImagePlus, Plus, Rocket, Smartphone, Trash2, UploadCloud } from "lucide-react";
 import { useUser } from "../lib/auth";
 import { useSettings, YT_CATEGORIES, type Privacy } from "../lib/settings";
 import { newItemId, saveItem, useItems, type Item, type ItemKind } from "../lib/items";
 import { useUploads } from "../lib/uploads";
 import { useYouTube } from "../lib/youtube-context";
-import { storeFile } from "../lib/files";
+import { useAutopilot } from "../lib/autopilot-context";
 import { parseTags, tagsLength } from "../lib/meta";
-import { fmtBytes, fmtDateTime, fromLocalInput, MIN_LEAD_MS, nextFreeSlot, toLocalInput } from "../lib/schedule";
+import { fmtBytes, fmtDateTime, fromLocalInput, MIN_LEAD_MS, nextFreeSlots, toLocalInput } from "../lib/schedule";
 import { DAILY_QUOTA, UPLOAD_COST, useQuotaUsed } from "../lib/quota";
 import { Alert, Button, Card, CardHeader, cx, Field, Input, PageHeader, Progress, Segmented, Select, Textarea, Toggle, useToast } from "../components/ui";
 
-type Mode = "now" | "schedule" | "queue";
-type When = "slot" | "custom" | "none";
+type Mode = "now" | "schedule";
+type When = "slot" | "custom";
 type VideoInfo = { duration: number; width: number; height: number; url: string };
+type Entry = { key: string; file: File; title: string; info: VideoInfo | null };
 
 function readVideoInfo(file: File): Promise<VideoInfo> {
   return new Promise((resolve) => {
@@ -33,33 +34,36 @@ function fmtDuration(s: number) {
   return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}:${String(sec).padStart(2, "0")}`;
 }
 
+const isVideo = (f: File) => f.type.startsWith("video/") || /\.(mp4|mov|mkv|webm|avi|m4v|wmv|flv|3gp|mpeg|mpg)$/i.test(f.name);
+const titleFromName = (name: string) => name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim().slice(0, 100);
+
 export default function UploadPage({ kind }: { kind: ItemKind }) {
   const user = useUser();
   const { settings } = useSettings();
   const yt = useYouTube();
   const uploads = useUploads();
+  const autopilot = useAutopilot();
   const { items } = useItems(user.uid);
   const toast = useToast();
   const navigate = useNavigate();
   const quotaUsed = useQuotaUsed();
   const isShort = kind === "short";
   const ytReady = !!settings.youtubeClientId;
+  const viaAutopilot = !!autopilot.config;
 
-  const [file, setFile] = useState<File | null>(null);
-  const [info, setInfo] = useState<VideoInfo | null>(null);
+  const [entries, setEntries] = useState<Entry[]>([]);
   const [thumb, setThumb] = useState<File | null>(null);
   const [thumbUrl, setThumbUrl] = useState<string | null>(null);
-  const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState(settings.defaults.tags);
   const [categoryId, setCategoryId] = useState(settings.defaults.categoryId);
   const [privacy, setPrivacy] = useState<Privacy>(settings.defaults.privacy);
   const [madeForKids, setMadeForKids] = useState(settings.defaults.madeForKids);
   const [notify, setNotify] = useState(settings.defaults.notifySubscribers);
-  const [mode, setMode] = useState<Mode>(ytReady ? "now" : "queue");
+  const [mode, setMode] = useState<Mode>("schedule");
   const [when, setWhen] = useState<When>("slot");
   const [custom, setCustom] = useState(() => toLocalInput(Date.now() + 3600_000));
-  const [saving, setSaving] = useState<number | null>(null);
+  const [transfer, setTransfer] = useState<{ i: number; total: number; progress: number } | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -72,61 +76,81 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
     setPrivacy(settings.defaults.privacy);
     setMadeForKids(settings.defaults.madeForKids);
     setNotify(settings.defaults.notifySubscribers);
-    if (!ytReady) setMode("queue");
-  }, [settings, ytReady]);
+  }, [settings]);
 
-  useEffect(() => () => {
-    if (info?.url) URL.revokeObjectURL(info.url);
-  }, [info]);
   useEffect(() => () => {
     if (thumbUrl) URL.revokeObjectURL(thumbUrl);
   }, [thumbUrl]);
 
-  const slot = useMemo(() => nextFreeSlot(settings.slots, items), [settings.slots, items]);
+  const single = entries.length === 1 ? entries[0] : null;
+  const bulk = entries.length > 1;
   const tagList = parseTags(tags);
   const tagLen = tagsLength(tagList);
-  const fullDescription = useMemo(() => {
+
+  const fullDescription = (title: string) => {
     let d = description.trim();
     if (settings.defaults.descriptionFooter.trim()) d = `${d}\n\n${settings.defaults.descriptionFooter.trim()}`.trim();
     if (isShort && settings.defaults.addShortsTag && !/#shorts\b/i.test(`${title} ${d}`)) d = `${d}\n\n#Shorts`.trim();
     return d;
-  }, [description, settings.defaults, isShort, title]);
+  };
 
-  const publishAt: number | null =
-    mode === "now" ? null : when === "slot" ? slot : when === "custom" ? fromLocalInput(custom) : null;
+  // Publish time for each entry: consecutive free slots, or the custom time for a single video.
+  const times: (number | null)[] = useMemo(() => {
+    if (mode === "now") return entries.map(() => null);
+    if (!bulk && when === "custom") return [fromLocalInput(custom)];
+    const s = nextFreeSlots(settings.slots, items, entries.length);
+    return entries.map((_, i) => s[i] ?? null);
+  }, [mode, bulk, when, custom, settings.slots, items, entries]);
+
+  const quotaLeft = Math.max(0, Math.floor((DAILY_QUOTA - quotaUsed) / UPLOAD_COST));
+  const direct = mode === "now" || !viaAutopilot;
 
   const problems: string[] = [];
-  if (!file) problems.push("Choose a video file.");
-  if (!title.trim()) problems.push("Add a title.");
-  if (title.length > 100) problems.push("Title must be 100 characters or less.");
-  if (/[<>]/.test(title + fullDescription)) problems.push("Title and description cannot contain < or >.");
-  if (fullDescription.length > 5000) problems.push("Description (with footer) must be 5000 characters or less.");
+  if (!entries.length) problems.push("Choose a video file.");
+  if (entries.some((e) => !e.title.trim())) problems.push("Every video needs a title.");
+  if (entries.some((e) => e.title.length > 100)) problems.push("Titles must be 100 characters or less.");
+  if (entries.some((e) => /[<>]/.test(e.title)) || /[<>]/.test(description)) problems.push("Titles and description cannot contain < or >.");
+  if (fullDescription("").length > 5000) problems.push("Description (with footer) must be 5000 characters or less.");
   if (tagLen > 500) problems.push("Tags are over YouTube's 500-character limit.");
   if (mode === "schedule") {
-    if (publishAt === null) problems.push(when === "slot" ? "No free slot — add daily times in Settings." : "Pick a publish time.");
-    else if (publishAt < Date.now() + MIN_LEAD_MS) problems.push("Schedule time must be at least 15 minutes from now.");
+    if (times.some((t) => t === null)) problems.push(when === "custom" && !bulk ? "Pick a publish time." : "Not enough free slots — add daily times in Settings.");
+    else if (times.some((t) => t! < Date.now() + MIN_LEAD_MS)) problems.push("Publish time must be at least 15 minutes from now.");
   }
-  if (mode === "queue" && when === "custom" && (publishAt === null || publishAt < Date.now())) problems.push("Pick a future time for the queue.");
+  if (direct && entries.length > quotaLeft)
+    problems.push(
+      quotaLeft === 0
+        ? "No YouTube API quota left today for browser uploads."
+        : `Today's quota allows about ${quotaLeft} more upload${quotaLeft > 1 ? "s" : ""} from the browser.${viaAutopilot ? "" : " Set up Autopilot to schedule more."}`,
+    );
+  if (!ytReady) problems.push("Connect YouTube in Settings first.");
 
   const shortWarnings: string[] = [];
-  if (isShort && info && info.width) {
-    if (info.width > info.height) shortWarnings.push("This video is horizontal. Shorts should be vertical (9:16) or square.");
-    if (info.duration > 180) shortWarnings.push(`This video is ${fmtDuration(info.duration)} long. Shorts can be at most 3 minutes.`);
+  if (single?.info?.width) {
+    const { info } = single;
+    if (isShort && info.width > info.height) shortWarnings.push("This video is horizontal. Shorts should be vertical (9:16) or square.");
+    if (isShort && info.duration > 180) shortWarnings.push(`This video is ${fmtDuration(info.duration)} long. Shorts can be at most 3 minutes.`);
+    if (!isShort && info.height > info.width && info.duration <= 180) shortWarnings.push("This looks like a Short (vertical, under 3 min). YouTube will treat it as a Short.");
   }
-  if (!isShort && info && info.width && info.height > info.width && info.duration <= 180)
-    shortWarnings.push("This looks like a Short (vertical, under 3 min). YouTube will treat it as a Short anyway.");
 
-  const pickFile = async (f: File | undefined | null) => {
-    if (!f) return;
-    if (!f.type.startsWith("video/") && !/\.(mp4|mov|mkv|webm|avi|m4v|wmv|flv|3gp|mpeg|mpg)$/i.test(f.name)) {
-      toast("error", "That is not a video file.");
-      return;
-    }
+  const addFiles = async (list: FileList | File[] | null | undefined) => {
+    const files = [...(list ?? [])].filter(isVideo);
+    if (!files.length) return toast("error", "Choose video files (MP4, MOV, WebM…).");
     touched.current = true;
-    setFile(f);
-    setInfo(await readVideoInfo(f));
-    if (!title) setTitle(f.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").slice(0, 100));
+    const added: Entry[] = files.map((f) => ({ key: newItemId(), file: f, title: titleFromName(f.name), info: null }));
+    setEntries((e) => [...e, ...added]);
+    // Read duration/size in the background (small files first is not needed — order is kept).
+    for (const a of added) {
+      const info = await readVideoInfo(a.file);
+      setEntries((e) => e.map((x) => (x.key === a.key ? { ...x, info } : x)));
+    }
   };
+
+  const removeEntry = (key: string) =>
+    setEntries((e) => {
+      const gone = e.find((x) => x.key === key);
+      if (gone?.info?.url) URL.revokeObjectURL(gone.info.url);
+      return e.filter((x) => x.key !== key);
+    });
 
   const pickThumb = (f: File | undefined | null) => {
     if (!f) return;
@@ -137,85 +161,103 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
   };
 
   const reset = () => {
-    setFile(null);
-    setInfo(null);
+    entries.forEach((e) => e.info?.url && URL.revokeObjectURL(e.info.url));
+    setEntries([]);
     setThumb(null);
     setThumbUrl(null);
-    setTitle("");
     setDescription("");
     touched.current = false;
   };
 
-  const submit = async () => {
-    if (!file || problems.length) return;
-    const id = newItemId();
-    const now = Date.now();
-    const base: Item = {
-      id,
-      kind,
-      title: title.trim(),
-      description: fullDescription,
-      tags: tagList,
-      categoryId,
-      privacy,
-      madeForKids,
-      notifySubscribers: notify,
-      publishAt,
-      status: mode === "queue" ? "queued" : "uploading",
-      youtubeId: null,
-      file: null,
-      thumb: null,
-      error: null,
-      createdAt: now,
-      updatedAt: now,
-      uploadedAt: null,
-    };
+  const baseFor = (e: Entry, publishAt: number | null) => ({
+    kind,
+    title: e.title.trim(),
+    description: fullDescription(e.title),
+    tags: tagList,
+    categoryId,
+    privacy,
+    madeForKids,
+    notifySubscribers: notify,
+    publishAt,
+  });
 
-    if (mode === "queue") {
-      setSaving(0);
+  const submit = async () => {
+    if (problems.length) return;
+    const list = entries;
+    const t = single ? thumb : null;
+    const publishTimes = times;
+
+    try {
+      // Get the token inside the click so the Google popup is not blocked.
+      await yt.ensureToken(!direct);
+    } catch (e) {
+      return toast("error", (e as Error).message);
+    }
+
+    if (!direct) {
+      // Autopilot: copy each file to the user's Drive and book it. Google uploads it on time.
+      setTransfer({ i: 0, total: list.length, progress: 0 });
+      let done = 0;
       try {
-        const stored = await storeFile(settings, `${id}/video`, file, setSaving);
-        const storedThumb = thumb ? await storeFile(settings, `${id}/thumb`, thumb) : null;
-        await saveItem(user.uid, { ...base, file: stored, thumb: storedThumb });
-        toast("ok", "Saved to your queue.");
+        for (let i = 0; i < list.length; i++) {
+          setTransfer({ i, total: list.length, progress: 0 });
+          await autopilot.queue(baseFor(list[i], publishTimes[i]), list[i].file, t, (p) => setTransfer({ i, total: list.length, progress: p }));
+          done++;
+          setEntries((e) => e.filter((x) => x.key !== list[i].key));
+        }
+        toast("ok", `${done} video${done > 1 ? "s" : ""} added to Autopilot. ${done > 1 ? "They go" : "It goes"} live on schedule — your PC can be off.`);
         reset();
       } catch (e) {
-        toast("error", (e as Error).message);
+        toast("error", `${done ? `${done} added. ` : ""}Stopped at “${list[done]?.title}”: ${(e as Error).message}`);
       } finally {
-        setSaving(null);
+        setTransfer(null);
       }
       return;
     }
 
-    try {
-      // Get the token first, inside the click, so the Google popup is not blocked.
-      await yt.ensureToken();
-    } catch (e) {
-      toast("error", (e as Error).message);
-      return;
+    // Direct browser upload (Now, or Schedule without Autopilot).
+    const now = Date.now();
+    const created: { item: Item; file: File }[] = [];
+    for (let i = 0; i < list.length; i++) {
+      const item: Item = {
+        ...baseFor(list[i], publishTimes[i]),
+        id: newItemId(),
+        status: "uploading",
+        youtubeId: null,
+        file: null,
+        thumb: null,
+        error: null,
+        createdAt: now + i,
+        updatedAt: now,
+        uploadedAt: null,
+      };
+      await saveItem(user.uid, item);
+      created.push({ item, file: list[i].file });
     }
-    await saveItem(user.uid, base);
-    const video = file;
-    const t = thumb;
     reset();
-    toast("info", "Upload started — you can keep using the app, just keep this tab open.");
-    uploads
-      .run(base, { video, thumb: t })
-      .then(() => toast("ok", mode === "schedule" ? `“${base.title}” is scheduled for ${fmtDateTime(publishAt!)}.` : `“${base.title}” is uploaded.`))
-      .catch((e) => toast("error", `Upload failed: ${(e as Error).message}`));
+    toast("info", `Uploading ${created.length} video${created.length > 1 ? "s" : ""} — keep this tab open until it finishes.`);
+    for (const { item, file } of created) {
+      try {
+        await uploads.run(item, { video: file, thumb: t });
+        toast("ok", item.publishAt ? `“${item.title}” is scheduled for ${fmtDateTime(item.publishAt)}.` : `“${item.title}” is uploaded.`);
+      } catch (e) {
+        toast("error", `“${item.title}”: ${(e as Error).message}`);
+        if (/quota|session expired/i.test((e as Error).message)) break;
+      }
+    }
   };
 
-  const quotaLeft = DAILY_QUOTA - quotaUsed;
+  const busy = transfer !== null;
 
   return (
     <>
       <PageHeader
-        title={isShort ? "Upload a Short" : "Upload a Video"}
-        subtitle={isShort ? "Vertical 9:16, up to 3 minutes." : "Any length your channel allows. Add a custom thumbnail if you like."}
+        title={isShort ? "Upload Shorts" : "Upload Videos"}
+        subtitle={isShort ? "Vertical 9:16, up to 3 minutes. Select one or many." : "Long videos. Select one or many."}
         action={
           <Link to={isShort ? "/upload/video" : "/upload/short"}>
             <Button variant="ghost" icon={isShort ? <Clapperboard className="size-4" /> : <Smartphone className="size-4" />}>
-              {isShort ? "Upload a long video instead" : "Upload a Short instead"}
+              {isShort ? "Long videos instead" : "Shorts instead"}
             </Button>
           </Link>
         }
@@ -223,29 +265,26 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
 
       {!ytReady && (
         <div className="mb-6">
-          <Alert tone="warn" title="YouTube is not connected yet" action={<Button size="sm" variant="primary" onClick={() => navigate("/guide")}>Open guide</Button>}>
-            You can still add videos to your queue. To upload or schedule, add your OAuth Client ID in Settings.
+          <Alert tone="warn" title="YouTube is not connected yet" action={<Button size="sm" variant="primary" onClick={() => navigate("/settings")}>Settings</Button>}>
+            Add your OAuth Client ID in Settings to start uploading.
           </Alert>
         </div>
       )}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
         <div className="space-y-6">
-          {/* File */}
+          {/* Files */}
           <Card>
-            {!file ? (
+            {entries.length === 0 ? (
               <button
                 type="button"
                 onClick={() => fileInput.current?.click()}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragOver(true);
-                }}
+                onDragOver={(e) => (e.preventDefault(), setDragOver(true))}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={(e) => {
                   e.preventDefault();
                   setDragOver(false);
-                  pickFile(e.dataTransfer.files[0]);
+                  addFiles(e.dataTransfer.files);
                 }}
                 className={cx(
                   "flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-14 text-center transition",
@@ -255,61 +294,97 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
                 <div className="grad-bg mb-4 grid size-14 place-items-center rounded-2xl text-white shadow-lg shadow-accent/30">
                   <UploadCloud className="size-7" />
                 </div>
-                <div className="font-semibold">Drop your {isShort ? "Short" : "video"} here</div>
-                <div className="mt-1 text-sm text-muted">or click to choose · MP4, MOV, WebM…</div>
+                <div className="font-semibold">Drop your {isShort ? "Shorts" : "videos"} here</div>
+                <div className="mt-1 text-sm text-muted">or click to choose · one or many at once</div>
               </button>
-            ) : (
+            ) : single ? (
               <div className="flex flex-col gap-4 p-4 sm:flex-row">
-                <video
-                  src={info?.url}
-                  controls
-                  className={cx("rounded-xl bg-black object-contain", isShort ? "aspect-[9/16] w-full sm:w-44" : "aspect-video w-full sm:w-72")}
-                />
+                <video src={single.info?.url} controls className={cx("rounded-xl bg-black object-contain", isShort ? "aspect-[9/16] w-full sm:w-44" : "aspect-video w-full sm:w-72")} />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate font-medium">{file.name}</div>
+                  <div className="truncate font-medium">{single.file.name}</div>
                   <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
-                    <span>{fmtBytes(file.size)}</span>
-                    {info?.duration ? <span>{fmtDuration(info.duration)}</span> : null}
-                    {info?.width ? <span>{info.width}×{info.height}</span> : null}
+                    <span>{fmtBytes(single.file.size)}</span>
+                    {single.info?.duration ? <span>{fmtDuration(single.info.duration)}</span> : null}
+                    {single.info?.width ? <span>{single.info.width}×{single.info.height}</span> : null}
                   </div>
                   <div className="mt-3 space-y-2">
                     {shortWarnings.map((w) => (
                       <Alert key={w} tone="warn">{w}</Alert>
                     ))}
                   </div>
-                  <Button variant="ghost" size="sm" className="mt-3" icon={<Trash2 className="size-4" />} onClick={reset}>
-                    Remove
-                  </Button>
+                  <div className="mt-3 flex gap-2">
+                    <Button variant="ghost" size="sm" icon={<Plus className="size-4" />} onClick={() => fileInput.current?.click()} disabled={busy}>Add more</Button>
+                    <Button variant="ghost" size="sm" icon={<Trash2 className="size-4" />} onClick={reset} disabled={busy}>Remove</Button>
+                  </div>
                 </div>
               </div>
+            ) : (
+              <>
+                <CardHeader
+                  title={`${entries.length} ${isShort ? "Shorts" : "videos"} selected`}
+                  subtitle={mode === "schedule" ? "Each one gets the next free slot. Edit titles below." : "Edit titles below."}
+                  action={
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="ghost" icon={<Plus className="size-4" />} onClick={() => fileInput.current?.click()} disabled={busy}>Add</Button>
+                      <Button size="sm" variant="ghost" icon={<Trash2 className="size-4" />} onClick={reset} disabled={busy}>Clear</Button>
+                    </div>
+                  }
+                />
+                <ul className="max-h-[32rem] divide-y divide-line overflow-y-auto">
+                  {entries.map((e, i) => (
+                    <li key={e.key} className="flex items-center gap-3 px-4 py-2.5">
+                      <span className="w-6 shrink-0 text-right text-xs tabular-nums text-faint">{i + 1}</span>
+                      <div className="min-w-0 flex-1">
+                        <Input
+                          value={e.title}
+                          maxLength={100}
+                          disabled={busy}
+                          onChange={(ev) => setEntries((all) => all.map((x) => (x.key === e.key ? { ...x, title: ev.target.value } : x)))}
+                          className="py-1.5"
+                        />
+                        <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-muted">
+                          <span className="truncate">{e.file.name}</span>
+                          <span>{fmtBytes(e.file.size)}</span>
+                          {e.info?.duration ? <span>{fmtDuration(e.info.duration)}</span> : null}
+                          {isShort && e.info?.width && (e.info.width > e.info.height || e.info.duration > 180) ? <span className="text-warn">not Short-shaped</span> : null}
+                        </div>
+                      </div>
+                      {times[i] && <span className="hidden w-32 shrink-0 text-right text-xs text-muted sm:block">{fmtDateTime(times[i]!)}</span>}
+                      <button onClick={() => removeEntry(e.key)} disabled={busy} className="text-faint hover:text-danger">
+                        <Trash2 className="size-4" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
-            <input ref={fileInput} type="file" accept="video/*" hidden onChange={(e) => pickFile(e.target.files?.[0])} />
+            <input ref={fileInput} type="file" accept="video/*" multiple hidden onChange={(e) => (addFiles(e.target.files), (e.target.value = ""))} />
           </Card>
 
           {/* Details */}
           <Card>
-            <CardHeader title="Details" subtitle="This is what viewers see on YouTube." />
+            <CardHeader title="Details" subtitle={bulk ? "Shared by all selected videos." : "This is what viewers see on YouTube."} />
             <div className="space-y-5 p-5">
-              <Field label="Title" counter={`${title.length}/100`}>
-                <Input value={title} maxLength={100} onChange={(e) => ((touched.current = true), setTitle(e.target.value))} placeholder="A title that makes people click" />
-              </Field>
+              {single && (
+                <Field label="Title" counter={`${single.title.length}/100`}>
+                  <Input
+                    value={single.title}
+                    maxLength={100}
+                    onChange={(e) => setEntries([{ ...single, title: e.target.value }])}
+                    placeholder="A title that makes people click"
+                  />
+                </Field>
+              )}
               <Field
                 label="Description"
-                counter={`${fullDescription.length}/5000`}
+                counter={`${fullDescription("").length}/5000`}
                 hint={settings.defaults.descriptionFooter || (isShort && settings.defaults.addShortsTag) ? "Your default footer / #Shorts is added automatically (change it in Settings)." : undefined}
               >
-                <Textarea rows={6} value={description} onChange={(e) => ((touched.current = true), setDescription(e.target.value))} placeholder="Tell viewers what this video is about…" />
+                <Textarea rows={5} value={description} onChange={(e) => ((touched.current = true), setDescription(e.target.value))} placeholder="Tell viewers what this video is about…" />
               </Field>
               <Field label="Tags" counter={`${tagLen}/500`} hint="Separate with commas.">
                 <Input value={tags} onChange={(e) => ((touched.current = true), setTags(e.target.value))} placeholder="comedy, tamil, shorts" />
               </Field>
-              {tagList.length > 0 && (
-                <div className="-mt-2 flex flex-wrap gap-1.5">
-                  {tagList.map((t) => (
-                    <span key={t} className="rounded-full bg-bg-soft px-2.5 py-1 text-xs text-muted ring-1 ring-line">{t}</span>
-                  ))}
-                </div>
-              )}
               <div className="grid gap-5 sm:grid-cols-2">
                 <Field label="Category">
                   <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
@@ -318,12 +393,10 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
                     ))}
                   </Select>
                 </Field>
-                {!isShort && (
+                {!isShort && !bulk && (
                   <Field label="Thumbnail (optional)" hint="JPG/PNG, 1280×720, under 2 MB">
                     <div className="flex items-center gap-3">
-                      {thumbUrl ? (
-                        <img src={thumbUrl} alt="" className="aspect-video h-11 rounded-lg object-cover ring-1 ring-line" />
-                      ) : null}
+                      {thumbUrl && <img src={thumbUrl} alt="" className="aspect-video h-11 rounded-lg object-cover ring-1 ring-line" />}
                       <label className="flex h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-line text-sm text-muted transition hover:bg-card-hover hover:text-fg">
                         <ImagePlus className="size-4" /> {thumb ? "Change" : "Choose image"}
                         <input type="file" accept="image/jpeg,image/png" hidden onChange={(e) => pickThumb(e.target.files?.[0])} />
@@ -352,22 +425,30 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
             <div className="space-y-5 p-5">
               <Segmented<Mode>
                 value={mode}
-                onChange={(m) => {
-                  setMode(m);
-                  if (m !== "queue" && when === "none") setWhen("slot");
-                }}
+                onChange={setMode}
                 options={[
-                  { value: "now", label: "Now", icon: <Rocket className="size-4" /> },
                   { value: "schedule", label: "Schedule", icon: <CalendarClock className="size-4" /> },
-                  { value: "queue", label: "Queue", icon: <ListPlus className="size-4" /> },
+                  { value: "now", label: "Publish now", icon: <Rocket className="size-4" /> },
                 ]}
               />
-              <p className="text-xs text-muted">
-                {mode === "now" && "Uploads right away with the visibility you pick."}
-                {mode === "schedule" && "Uploads now as private; YouTube makes it public at the time you pick — your computer can be off."}
-                {mode === "queue" &&
-                  `Saves the file to ${settings.storageMode === "firebase" ? "your Firebase Storage" : "this browser"} without uploading. Push it to YouTube later from the Queue.`}
-              </p>
+
+              {mode === "schedule" &&
+                (viaAutopilot ? (
+                  <div className="flex gap-3 rounded-xl border border-ok/25 bg-ok/5 p-3 text-xs">
+                    <Bot className="size-4.5 shrink-0 text-ok" />
+                    <span className="text-muted">
+                      <b className="text-fg">Autopilot is on.</b> Files are saved to your Google Drive, and Google uploads each one before its time — your PC can be off.
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex gap-3 rounded-xl border border-line bg-bg-soft p-3 text-xs">
+                    <Bot className="size-4.5 shrink-0 text-muted" />
+                    <span className="text-muted">
+                      Uploads now from this tab and YouTube publishes on time. Want to schedule many videos with your PC off?{" "}
+                      <Link to="/settings#autopilot" className="font-medium text-accent hover:underline">Set up Autopilot</Link>
+                    </span>
+                  </div>
+                ))}
 
               {mode === "now" ? (
                 <Field label="Visibility">
@@ -377,13 +458,22 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
                     <option value="private">Private</option>
                   </Select>
                 </Field>
+              ) : bulk ? (
+                <p className="text-sm">
+                  {times[0] && times[times.length - 1] ? (
+                    <>
+                      <b>{entries.length}</b> videos from <b>{fmtDateTime(times[0]!)}</b> to <b>{fmtDateTime(times[times.length - 1]!)}</b>, using your daily slots.
+                    </>
+                  ) : (
+                    <span className="text-warn">Add daily time slots in Settings.</span>
+                  )}
+                </p>
               ) : (
                 <div className="space-y-2">
                   {(
                     [
-                      ["slot", slot ? `Next free slot · ${fmtDateTime(slot)}` : "Next free slot · none set"],
+                      ["slot", times[0] && when === "slot" ? `Next free slot · ${fmtDateTime(times[0])}` : "Next free slot"],
                       ["custom", "Pick a date & time"],
-                      ...(mode === "queue" ? [["none", "Decide later"]] : []),
                     ] as [When, string][]
                   ).map(([v, label]) => (
                     <label key={v} className={cx("flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-sm transition", when === v ? "border-accent bg-accent-soft" : "border-line hover:bg-card-hover")}>
@@ -395,21 +485,20 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
                 </div>
               )}
 
-              {mode !== "queue" && quotaLeft < UPLOAD_COST && (
-                <Alert tone="warn">About {Math.max(0, quotaLeft)} API units left today; an upload needs {UPLOAD_COST}. It may fail until the quota resets.</Alert>
-              )}
-
-              {saving !== null && (
+              {transfer && (
                 <div>
                   <div className="mb-1.5 flex justify-between text-xs text-muted">
-                    <span>Saving to {settings.storageMode === "firebase" ? "your Firebase Storage" : "this browser"}…</span>
-                    <span className="tabular-nums">{Math.round(saving * 100)}%</span>
+                    <span>
+                      Saving to Drive {transfer.total > 1 ? `· ${transfer.i + 1} of ${transfer.total}` : ""}
+                    </span>
+                    <span className="tabular-nums">{Math.round(transfer.progress * 100)}%</span>
                   </div>
-                  <Progress value={saving} />
+                  <Progress value={(transfer.i + transfer.progress) / transfer.total} />
+                  <p className="mt-1.5 text-[11px] text-faint">Keep this tab open until saving finishes. After that you can close everything.</p>
                 </div>
               )}
 
-              {problems.length > 0 && file && (
+              {problems.length > 0 && entries.length > 0 && (
                 <ul className="space-y-1 text-xs text-danger">
                   {problems.map((p) => (
                     <li key={p}>• {p}</li>
@@ -421,12 +510,16 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
                 variant="primary"
                 size="lg"
                 className="w-full"
-                disabled={!!problems.length || (mode !== "queue" && !ytReady)}
-                loading={saving !== null}
+                disabled={!!problems.length}
+                loading={busy}
                 onClick={submit}
-                icon={mode === "now" ? <Rocket className="size-4.5" /> : mode === "schedule" ? <CalendarClock className="size-4.5" /> : <ListPlus className="size-4.5" />}
+                icon={mode === "now" ? <Rocket className="size-4.5" /> : direct ? <CalendarClock className="size-4.5" /> : <Bot className="size-4.5" />}
               >
-                {mode === "now" ? "Upload now" : mode === "schedule" ? "Upload & schedule" : "Add to queue"}
+                {mode === "now"
+                  ? `Upload now${bulk ? ` (${entries.length})` : ""}`
+                  : direct
+                    ? `Upload & schedule${bulk ? ` (${entries.length})` : ""}`
+                    : `Add to Autopilot${bulk ? ` (${entries.length})` : ""}`}
               </Button>
             </div>
           </Card>

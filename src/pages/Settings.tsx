@@ -1,36 +1,36 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
 import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
-import { BookOpen, CalendarClock, Database, HardDrive, Monitor, Plus, SlidersHorizontal, Trash2, Youtube, X } from "lucide-react";
+import { AlertTriangle, BookOpen, Bot, CalendarClock, CheckCircle2, CircleDashed, Database, ExternalLink, Pause, Play, Plus, RefreshCw, ShieldCheck, SlidersHorizontal, Trash2, Wrench, X, XCircle, Youtube } from "lucide-react";
 import { db } from "../lib/firebase";
 import { signOut, useUser } from "../lib/auth";
-import { useSettings, YT_CATEGORIES, type Privacy, type Settings as S, type StorageMode } from "../lib/settings";
+import { useSettings, YT_CATEGORIES, type Privacy, type Settings as S } from "../lib/settings";
 import { useYouTube } from "../lib/youtube-context";
-import { isValidClientId } from "../lib/youtube";
-import { parseFirebaseConfig, testUserStorage, userStorageUser } from "../lib/userFirebase";
-import { corsCommand, siteOrigin, storageRules } from "../lib/snippets";
+import { useAutopilot } from "../lib/autopilot-context";
+import { getMyChannel, isValidClientId } from "../lib/youtube";
+import { checkAutopilot, deployScript, ENABLE_APIS_URL, isReady, openWebApp, SCRIPT_SETTINGS_URL, SCRIPT_VERSION, setupAutopilot, type Check } from "../lib/autopilot";
+import { siteOrigin } from "../lib/snippets";
 import { fmtSlot, sortSlots, timeZoneName } from "../lib/schedule";
-import { dropFile } from "../lib/files";
-import type { Item } from "../lib/items";
-import { Alert, Badge, Button, Card, CardHeader, Field, Input, PageHeader, Segmented, Select, Textarea, Toggle, useToast } from "../components/ui";
+import { Alert, Badge, Button, Card, CardHeader, cx, Field, Input, PageHeader, Select, Textarea, Toggle, useToast } from "../components/ui";
 import { CopyBox } from "../components/CopyBox";
 
 export default function Settings() {
   const loc = useLocation();
   useEffect(() => {
-    if (loc.hash) document.querySelector(loc.hash)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (loc.hash) setTimeout(() => document.querySelector(loc.hash)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   }, [loc.hash]);
 
   return (
     <>
       <PageHeader
         title="Settings"
-        subtitle="Connect your channel and storage, and set your defaults."
+        subtitle="Connect your channel, turn on Autopilot and set your defaults."
         action={<Link to="/guide"><Button icon={<BookOpen className="size-4" />}>Setup guide</Button></Link>}
       />
       <div className="space-y-6">
+        <ConnectionCheck />
         <YouTubeSection />
-        <StorageSection />
+        <AutopilotSection />
         <ScheduleSection />
         <DefaultsSection />
         <DataSection />
@@ -38,6 +38,97 @@ export default function Settings() {
     </>
   );
 }
+
+// ---------- Check everything ----------
+
+function StateIcon({ state }: { state: Check["state"] | "todo" }) {
+  if (state === "ok") return <CheckCircle2 className="size-5 shrink-0 text-ok" />;
+  if (state === "warn") return <AlertTriangle className="size-5 shrink-0 text-warn" />;
+  if (state === "error") return <XCircle className="size-5 shrink-0 text-danger" />;
+  return <CircleDashed className="size-5 shrink-0 text-faint" />;
+}
+
+function ConnectionCheck() {
+  const { settings } = useSettings();
+  const yt = useYouTube();
+  const autopilot = useAutopilot();
+  const [checks, setChecks] = useState<Check[] | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const run = async () => {
+    setBusy(true);
+    const out: Check[] = [];
+    const add = (c: Check) => {
+      out.push(c);
+      setChecks([...out]);
+    };
+    setChecks([]);
+    try {
+      if (!settings.youtubeClientId) {
+        add({ key: "client", label: "OAuth Client ID", state: "error", detail: "Not added yet — see the YouTube section below." });
+        return;
+      }
+      add({ key: "client", label: "OAuth Client ID", state: "ok", detail: "Saved." });
+      const cfg = isReady(settings.autopilot) ? settings.autopilot : null;
+      let token: string;
+      try {
+        token = await yt.ensureToken(!!cfg);
+        add({ key: "login", label: "Google permission", state: "ok", detail: cfg ? "YouTube + Drive allowed." : "YouTube allowed." });
+      } catch (e) {
+        add({ key: "login", label: "Google permission", state: "error", detail: (e as Error).message });
+        return;
+      }
+      try {
+        const ch = await getMyChannel(token);
+        add({ key: "channel", label: "YouTube channel", state: "ok", detail: `${ch.title} — uploads work.` });
+      } catch (e) {
+        add({ key: "channel", label: "YouTube channel", state: "error", detail: (e as Error).message });
+      }
+      if (!cfg) {
+        add({ key: "autopilot", label: "Autopilot", state: "warn", detail: "Not set up. Without it, the browser tab must stay open while videos upload." });
+        return;
+      }
+      const r = await checkAutopilot(token, cfg);
+      autopilot.setStatus(r.status);
+      r.checks.forEach(add);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const allOk = checks && checks.length > 0 && !busy && checks.every((c) => c.state === "ok");
+
+  return (
+    <Card className={cx(allOk && "ring-1 ring-ok/40")}>
+      <CardHeader
+        icon={<ShieldCheck className="size-5" />}
+        title="Check connection"
+        subtitle="Tests every part — YouTube, Drive, the queue sheet and Autopilot — and tells you what to fix."
+        action={
+          <Button variant="primary" loading={busy} icon={<RefreshCw className="size-4" />} onClick={run}>
+            {checks ? "Check again" : "Check now"}
+          </Button>
+        }
+      />
+      {checks && (
+        <ul className="divide-y divide-line">
+          {checks.map((c) => (
+            <li key={c.key} className="flex items-start gap-3 px-5 py-3">
+              <StateIcon state={c.state} />
+              <div className="min-w-0">
+                <div className="text-sm font-medium">{c.label}</div>
+                <div className="text-xs break-words text-muted">{c.detail}</div>
+              </div>
+            </li>
+          ))}
+          {allOk && <li className="px-5 py-3 text-sm font-medium text-ok">Everything works. 🎉</li>}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+// ---------- YouTube ----------
 
 function YouTubeSection() {
   const { settings, save } = useSettings();
@@ -50,14 +141,12 @@ function YouTubeSection() {
   const dirty = clientId.trim() !== settings.youtubeClientId;
   const valid = isValidClientId(clientId);
 
-  const saveAndConnect = async () => {
+  const saveId = async () => {
     setBusy(true);
     try {
-      if (dirty) {
-        if (settings.youtubeClientId) yt.disconnect();
-        await save({ youtubeClientId: clientId.trim() });
-        toast("ok", "Client ID saved. Now click “Connect YouTube”.");
-      }
+      if (settings.youtubeClientId) yt.disconnect();
+      await save({ youtubeClientId: clientId.trim() });
+      toast("ok", "Client ID saved. Now click “Connect YouTube”.");
     } catch (e) {
       toast("error", (e as Error).message);
     } finally {
@@ -70,34 +159,34 @@ function YouTubeSection() {
       <span id="youtube" className="block scroll-mt-24" />
       <CardHeader icon={<Youtube className="size-5" />} title="YouTube" subtitle="Your own Google Cloud OAuth Client ID — your quota, your control." />
       <div className="space-y-5 p-5">
+        <div className="flex flex-wrap gap-2">
+          <ExtButton href="https://console.cloud.google.com/projectcreate">1 · Create project</ExtButton>
+          <ExtButton href={ENABLE_APIS_URL}>2 · Enable APIs</ExtButton>
+          <ExtButton href="https://console.cloud.google.com/auth/overview">3 · Consent screen</ExtButton>
+          <ExtButton href="https://console.cloud.google.com/auth/audience">4 · Add test user</ExtButton>
+          <ExtButton href="https://console.cloud.google.com/auth/clients/create">5 · Create Client ID</ExtButton>
+          <Link to="/guide#youtube"><Button size="sm" variant="ghost" icon={<BookOpen className="size-3.5" />}>Step-by-step guide</Button></Link>
+        </div>
+
+        <CopyBox label="Authorized JavaScript origin (paste this when creating the Client ID)" value={siteOrigin()} />
+
         <Field
           label="OAuth Client ID"
-          hint={
-            <>
-              Looks like <span className="font-mono">1234567890-abc123.apps.googleusercontent.com</span>. Not sure how to get it?{" "}
-              <Link to="/guide" className="font-medium text-fg underline">Follow the guide</Link>.
-            </>
-          }
+          hint={<>Looks like <span className="font-mono">1234567890-abc123.apps.googleusercontent.com</span>.</>}
         >
           <div className="flex flex-col gap-2 sm:flex-row">
             <Input value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="xxxxxxxx.apps.googleusercontent.com" spellCheck={false} />
-            <Button variant={dirty ? "primary" : "secondary"} disabled={!dirty || (!!clientId.trim() && !valid)} loading={busy} onClick={saveAndConnect}>
+            <Button variant={dirty ? "primary" : "secondary"} disabled={!dirty || (!!clientId.trim() && !valid)} loading={busy} onClick={saveId}>
               Save
             </Button>
           </div>
         </Field>
         {clientId && !valid && <Alert tone="warn">That does not look like an OAuth Client ID. Copy the “Client ID” (not the secret, not an API key).</Alert>}
 
-        <CopyBox label="Authorized JavaScript origin (paste this in Google Cloud)" value={siteOrigin()} />
-
         {settings.youtubeClientId && (
           <div className="flex flex-col gap-4 rounded-xl border border-line bg-bg-soft p-4 sm:flex-row sm:items-center">
             <div className="flex min-w-0 flex-1 items-center gap-3">
-              {yt.channel?.thumbnail ? (
-                <img src={yt.channel.thumbnail} alt="" className="size-10 rounded-full" referrerPolicy="no-referrer" />
-              ) : (
-                <Youtube className="size-8 text-accent" />
-              )}
+              {yt.channel?.thumbnail ? <img src={yt.channel.thumbnail} alt="" className="size-10 rounded-full" referrerPolicy="no-referrer" /> : <Youtube className="size-8 text-accent" />}
               <div className="min-w-0">
                 <div className="truncate font-medium">{yt.channel?.title ?? "Not connected"}</div>
                 <div className="text-xs text-muted">
@@ -106,9 +195,7 @@ function YouTubeSection() {
               </div>
             </div>
             <div className="flex gap-2">
-              {yt.channel && (
-                <Button variant="ghost" onClick={yt.disconnect}>Disconnect</Button>
-              )}
+              {yt.channel && <Button variant="ghost" onClick={yt.disconnect}>Disconnect</Button>}
               {!yt.connected && (
                 <Button variant="primary" loading={yt.connecting} icon={<Youtube className="size-4" />} onClick={() => yt.connect().then(() => toast("ok", "YouTube connected!")).catch((e) => toast("error", e.message))}>
                   Connect YouTube
@@ -117,125 +204,175 @@ function YouTubeSection() {
             </div>
           </div>
         )}
-        {yt.error && <Alert tone="error" title="Could not connect">{yt.error}{/origin|redirect_uri|invalid_client|idpiframe/i.test(yt.error) && " — check that the Authorized JavaScript origin above is added to your Client ID exactly."}</Alert>}
-      </div>
-    </Card>
-  );
-}
-
-function StorageSection() {
-  const user = useUser();
-  const { settings, save } = useSettings();
-  const toast = useToast();
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState<"save" | "test" | null>(null);
-  const [email, setEmail] = useState(user.email ?? "");
-  const [storageUser, setStorageUser] = useState<string | null>(null);
-  const cfg = settings.userFirebase;
-
-  useEffect(() => {
-    if (cfg) userStorageUser(cfg).then((u) => setStorageUser(u?.email ?? null)).catch(() => setStorageUser(null));
-  }, [cfg]);
-
-  const setMode = async (m: StorageMode) => {
-    await save({ storageMode: m });
-  };
-
-  const saveConfig = async () => {
-    setBusy("save");
-    try {
-      const c = parseFirebaseConfig(text);
-      await save({ userFirebase: c, storageMode: "firebase" });
-      setText("");
-      toast("ok", `Saved config for “${c.projectId}”. Now click “Sign in & test”.`);
-    } catch (e) {
-      toast("error", (e as Error).message);
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const test = async () => {
-    if (!cfg) return;
-    setBusy("test");
-    try {
-      await testUserStorage(cfg, email);
-      const u = await userStorageUser(cfg);
-      setStorageUser(u?.email ?? null);
-      toast("ok", "Your Firebase Storage works — upload, read and delete all passed.");
-    } catch (e) {
-      toast("error", (e as Error).message);
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  return (
-    <Card>
-      <span id="storage" className="block scroll-mt-24" />
-      <CardHeader icon={<HardDrive className="size-5" />} title="Queue storage" subtitle="Where queued videos wait before going to YouTube. Always yours — never on our servers." />
-      <div className="space-y-5 p-5">
-        <Segmented<StorageMode>
-          value={settings.storageMode}
-          onChange={setMode}
-          options={[
-            { value: "browser", label: "This browser", icon: <Monitor className="size-4" /> },
-            { value: "firebase", label: "My Firebase Storage", icon: <HardDrive className="size-4" /> },
-          ]}
-        />
-
-        {settings.storageMode === "browser" ? (
-          <Alert tone="info" title="No setup needed">
-            Files are kept inside this browser on this computer. Clearing browser data deletes them, and other devices can't see them. Videos you upload or schedule directly don't need storage at all.
+        {yt.error && (
+          <Alert tone="error" title="Could not connect">
+            {yt.error}
+            {/origin|redirect_uri|invalid_client|idpiframe/i.test(yt.error) && " — check that the Authorized JavaScript origin above is added to your Client ID exactly."}
           </Alert>
-        ) : (
-          <>
-            <Alert tone="info" title="Uses your own Firebase project">
-              Files go to your bucket and use your storage quota. New Firebase Storage buckets need the Blaze plan (card on file); the free allowance still applies and queued files are deleted after upload.{" "}
-              <Link to="/guide#storage" className="font-medium text-fg underline">Storage guide</Link>
-            </Alert>
-
-            {cfg && (
-              <div className="flex flex-col gap-3 rounded-xl border border-line bg-bg-soft p-4 sm:flex-row sm:items-center">
-                <Database className="size-6 shrink-0 text-accent" />
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium">{cfg.projectId}</div>
-                  <div className="truncate text-xs text-muted">
-                    {cfg.storageBucket} · {storageUser ? `signed in as ${storageUser}` : "not signed in yet"}
-                  </div>
-                </div>
-                <Button variant="primary" loading={busy === "test"} onClick={test}>Sign in & test</Button>
-              </div>
-            )}
-
-            <Field label={cfg ? "Replace Firebase config" : "Paste your Firebase web config"} hint="Firebase console → Project settings → Your apps → Web app → SDK setup and configuration → Config. Paste the whole block.">
-              <Textarea
-                rows={7}
-                className="font-mono text-xs"
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                spellCheck={false}
-                placeholder={`const firebaseConfig = {\n  apiKey: "AIza...",\n  authDomain: "my-project.firebaseapp.com",\n  projectId: "my-project",\n  storageBucket: "my-project.firebasestorage.app",\n  messagingSenderId: "...",\n  appId: "1:...:web:..."\n};`}
-              />
-            </Field>
-            <div className="flex justify-end">
-              <Button variant="primary" disabled={!text.trim()} loading={busy === "save"} onClick={saveConfig}>Save config</Button>
-            </div>
-
-            <div className="space-y-4 border-t border-line pt-5">
-              <Field label="Your Gmail for the Storage rules" hint="The Google account you'll sign in with on “Sign in & test”.">
-                <Input value={email} onChange={(e) => setEmail(e.target.value)} />
-              </Field>
-              <CopyBox block label="Storage rules → paste in Firebase console → Storage → Rules → Publish" value={storageRules(email)} />
-              <CopyBox block label="CORS → run once in Google Cloud Shell (lets this site read your files)" value={corsCommand(cfg?.storageBucket ?? "")} />
-              <CopyBox label="Add this domain in Firebase → Authentication → Settings → Authorized domains" value={window.location.hostname} />
-            </div>
-          </>
         )}
       </div>
     </Card>
   );
 }
+
+function ExtButton({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noreferrer">
+      <Button size="sm" icon={<ExternalLink className="size-3.5" />}>{children}</Button>
+    </a>
+  );
+}
+
+// ---------- Autopilot ----------
+
+function Step({ n, title, state, children }: { n: number; title: string; state: "ok" | "todo" | "warn"; children: ReactNode }) {
+  return (
+    <li className="flex gap-4 p-5">
+      <span className={cx("grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold", state === "ok" ? "bg-ok text-white" : state === "warn" ? "bg-warn text-white" : "bg-bg-soft ring-1 ring-line")}>
+        {state === "ok" ? "✓" : n}
+      </span>
+      <div className="min-w-0 flex-1 space-y-3">
+        <h3 className="pt-1 font-semibold">{title}</h3>
+        {children}
+      </div>
+    </li>
+  );
+}
+
+function AutopilotSection() {
+  const { settings, save } = useSettings();
+  const yt = useYouTube();
+  const autopilot = useAutopilot();
+  const toast = useToast();
+  const [step, setStep] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const cfg = autopilot.config;
+  const running = autopilot.running;
+  const outdated = !!cfg && cfg.version < SCRIPT_VERSION;
+
+  const allowDrive = () =>
+    yt
+      .connect(true)
+      .then(() => toast("ok", "Google Drive allowed."))
+      .catch((e) => toast("error", e.message));
+
+  const create = async () => {
+    setError(null);
+    setStep("Starting…");
+    try {
+      const token = await yt.ensureToken(true);
+      await setupAutopilot(token, settings.autopilot, settings.keepFilesAfterUpload, (c) => save({ autopilot: c }), setStep);
+      toast("ok", "Autopilot created. Now click “Activate Autopilot”.");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setStep(null);
+    }
+  };
+
+  const update = async () => {
+    if (!cfg) return;
+    setStep("Updating…");
+    try {
+      const token = await yt.ensureToken(true);
+      const d = await deployScript(token, cfg, settings.keepFilesAfterUpload);
+      await save({ autopilot: { ...cfg, ...d } });
+      toast("ok", "Autopilot updated.");
+    } catch (e) {
+      toast("error", (e as Error).message);
+    } finally {
+      setStep(null);
+    }
+  };
+
+  const reset = async () => {
+    if (!confirm("Remove Autopilot from this app? Click “Pause” first so the script stops running. Your Drive folder stays; queued videos won't be uploaded.")) return;
+    await save({ autopilot: null });
+  };
+
+  return (
+    <Card>
+      <span id="autopilot" className="block scroll-mt-24" />
+      <CardHeader
+        icon={<Bot className="size-5" />}
+        title="Autopilot"
+        subtitle="Add 100s of videos once. Google uploads each one before its time — your PC can be off. Free, in your own Google account."
+        action={running ? <Badge className="bg-ok/10 text-ok">Running</Badge> : cfg ? <Badge className="bg-warn/10 text-warn">Not active</Badge> : <Badge>Off</Badge>}
+      />
+      {!settings.youtubeClientId ? (
+        <div className="p-5">
+          <Alert tone="info">Finish the YouTube section first.</Alert>
+        </div>
+      ) : (
+        <ol className="divide-y divide-line">
+          <Step n={1} title="Turn on Google APIs (once)" state={cfg ? "ok" : "todo"}>
+            <p className="text-sm text-muted">Two clicks in your Google account. Use the same Google account and project as your Client ID.</p>
+            <div className="flex flex-wrap gap-2">
+              <ExtButton href={ENABLE_APIS_URL}>Enable YouTube, Drive, Sheets & Apps Script APIs</ExtButton>
+              <ExtButton href={SCRIPT_SETTINGS_URL}>Turn ON “Google Apps Script API”</ExtButton>
+            </div>
+          </Step>
+
+          <Step n={2} title="Allow Google Drive" state={yt.driveAllowed ? "ok" : "todo"}>
+            <p className="text-sm text-muted">TubeFlow can only see the files it creates in your Drive — nothing else.</p>
+            {!yt.driveAllowed && (
+              <Button variant="primary" loading={yt.connecting} onClick={allowDrive}>Allow Google Drive</Button>
+            )}
+          </Step>
+
+          <Step n={3} title="Create Autopilot" state={cfg ? (outdated ? "warn" : "ok") : "todo"}>
+            <p className="text-sm text-muted">Creates a private folder, a queue sheet and the Autopilot script in your Google account — automatically.</p>
+            {!cfg ? (
+              <Button variant="primary" loading={!!step} disabled={!yt.driveAllowed} onClick={create}>{step ?? "Create Autopilot"}</Button>
+            ) : outdated ? (
+              <Button variant="primary" loading={!!step} onClick={update}>{step ?? "Update Autopilot"}</Button>
+            ) : (
+              <p className="text-sm text-ok">Created (v{cfg.version}).</p>
+            )}
+            {error && (
+              <Alert tone="error" title="Setup stopped">
+                {error}
+                {/Apps Script API/i.test(error) && (
+                  <>
+                    {" "}
+                    <a href={SCRIPT_SETTINGS_URL} target="_blank" rel="noreferrer" className="font-medium text-fg underline">Open Apps Script settings</a>, turn it ON, wait a minute and click Create again.
+                  </>
+                )}
+              </Alert>
+            )}
+          </Step>
+
+          <Step n={4} title="Activate Autopilot" state={running ? "ok" : "todo"}>
+            <div className="text-sm text-muted">
+              A Google tab opens. Click <b className="text-fg">Review permissions</b> → pick your account → <b className="text-fg">Advanced</b> →{" "}
+              <b className="text-fg">Go to TubeFlow Autopilot</b> → <b className="text-fg">Allow</b>. You'll see “Autopilot is ON”. Then come back and click Check.
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant={running ? "secondary" : "primary"} disabled={!cfg} icon={<Play className="size-4" />} onClick={() => cfg && openWebApp(cfg, "setup")}>
+                {running ? "Activate again" : "Activate Autopilot"}
+              </Button>
+              <Button disabled={!cfg || !yt.driveAllowed} loading={autopilot.syncing} icon={<RefreshCw className="size-4" />} onClick={() => autopilot.sync().catch((e) => toast("error", e.message))}>
+                Check status
+              </Button>
+            </div>
+          </Step>
+
+          {cfg && (
+            <li className="flex flex-wrap items-center gap-2 bg-bg-soft/50 px-5 py-4">
+              <span className="mr-auto text-xs text-muted">Tools</span>
+              <Button size="sm" icon={<Play className="size-3.5" />} onClick={() => openWebApp(cfg, "run")} title="Runs Autopilot once now and shows the result">Run now</Button>
+              <Button size="sm" icon={<Wrench className="size-3.5" />} loading={step === "Updating…"} onClick={update} title="Re-install the latest script">Update</Button>
+              <Button size="sm" icon={<Pause className="size-3.5" />} onClick={() => openWebApp(cfg, "stop")}>Pause</Button>
+              <Button size="sm" variant="danger" icon={<Trash2 className="size-3.5" />} onClick={reset}>Remove</Button>
+            </li>
+          )}
+        </ol>
+      )}
+    </Card>
+  );
+}
+
+// ---------- Schedule ----------
 
 function ScheduleSection() {
   const { settings, save } = useSettings();
@@ -255,7 +392,7 @@ function ScheduleSection() {
   return (
     <Card>
       <span id="schedule" className="block scroll-mt-24" />
-      <CardHeader icon={<CalendarClock className="size-5" />} title="Daily time slots" subtitle={`“Next free slot” and “Upload all” use these times · ${timeZoneName}`} />
+      <CardHeader icon={<CalendarClock className="size-5" />} title="Daily time slots" subtitle={`New videos take the next free slot · ${timeZoneName}`} />
       <div className="space-y-5 p-5">
         <div className="flex flex-wrap gap-2">
           {presets.map(([label, p]) => (
@@ -283,11 +420,13 @@ function ScheduleSection() {
           </div>
           <Button variant="primary" disabled={!dirty} onClick={() => save({ slots: clean }).then(() => toast("ok", "Time slots saved."))}>Save slots</Button>
         </div>
-        <p className="text-xs text-faint">Tip: YouTube allows about 6 uploads a day on the free API quota, so 3–4 slots a day is a good maximum.</p>
+        <p className="text-xs text-faint">YouTube's free API quota allows about 6 uploads a day, so up to 6 slots a day. 3/day = 100 videos in about a month.</p>
       </div>
     </Card>
   );
 }
+
+// ---------- Defaults ----------
 
 function DefaultsSection() {
   const { settings, save } = useSettings();
@@ -303,7 +442,7 @@ function DefaultsSection() {
       <CardHeader icon={<SlidersHorizontal className="size-5" />} title="Upload defaults" subtitle="Pre-filled on every upload. You can still change them per video." />
       <div className="space-y-5 p-5">
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Visibility for “Upload now”">
+          <Field label="Visibility for “Publish now”">
             <Select value={d.privacy} onChange={(e) => set("privacy", e.target.value as Privacy)}>
               <option value="public">Public</option>
               <option value="unlisted">Unlisted</option>
@@ -337,23 +476,35 @@ function DefaultsSection() {
   );
 }
 
+// ---------- Data ----------
+
 function DataSection() {
   const user = useUser();
   const { settings, save } = useSettings();
+  const yt = useYouTube();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
 
+  const setKeep = async (v: boolean) => {
+    await save({ keepFilesAfterUpload: v });
+    const cfg = isReady(settings.autopilot) ? settings.autopilot : null;
+    if (!cfg) return;
+    try {
+      const token = await yt.ensureToken(true);
+      const d = await deployScript(token, cfg, v);
+      await save({ keepFilesAfterUpload: v, autopilot: { ...cfg, ...d } });
+      toast("ok", "Autopilot updated.");
+    } catch (e) {
+      toast("error", `Saved, but Autopilot was not updated: ${(e as Error).message}`);
+    }
+  };
+
   const deleteAll = async () => {
-    if (!confirm("Delete all your data from this app? Your queue, history and settings are removed. Videos already on YouTube stay there.")) return;
+    if (!confirm("Delete all your data from this app? Your queue list, history and settings are removed. Videos already on YouTube stay there. Pause Autopilot first if it is on.")) return;
     setBusy(true);
     try {
       const snap = await getDocs(collection(db, "users", user.uid, "items"));
-      for (const d of snap.docs) {
-        const it = d.data() as Item;
-        await dropFile(settings, it.file);
-        await dropFile(settings, it.thumb);
-        await deleteDoc(d.ref);
-      }
+      for (const d of snap.docs) await deleteDoc(d.ref);
       await deleteDoc(doc(db, "users", user.uid));
       try {
         localStorage.clear();
@@ -373,9 +524,9 @@ function DataSection() {
       <div className="space-y-5 p-5">
         <Toggle
           checked={settings.keepFilesAfterUpload}
-          onChange={(v) => save({ keepFilesAfterUpload: v })}
-          label="Keep queue files after upload"
-          hint="Off (recommended): the file is deleted from your storage once it is on YouTube, so storage stays free."
+          onChange={setKeep}
+          label="Keep video files in Drive after upload"
+          hint="Off (recommended): Autopilot moves a file to Drive's trash once it is on YouTube, so your free 15 GB stays free."
         />
         <div className="flex flex-wrap gap-2 border-t border-line pt-5">
           <Button onClick={() => signOut()}>Sign out</Button>

@@ -1,19 +1,22 @@
-// Runs uploads at the app-shell level so they keep going while the user moves between pages.
+// Runs browser uploads at the app-shell level so they keep going while the user moves between pages.
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useUser } from "./auth";
 import { useSettings } from "./settings";
 import { useYouTube } from "./youtube-context";
-import { dropFile, loadFile } from "./files";
 import { patchItem, type Item } from "./items";
-import { setThumbnail, uploadVideo, YouTubeError } from "./youtube";
-import { clearStoredToken } from "./youtube";
+import { clearStoredToken, setThumbnail, uploadVideo, YouTubeError } from "./youtube";
+import { downloadFromDrive, trashDriveFile } from "./google";
+import { isReady, setRowStatus } from "./autopilot";
 
 export type Job = { itemId: string; title: string; phase: "preparing" | "uploading" | "thumbnail"; progress: number };
 
 type UploadsState = {
   jobs: Record<string, Job>;
-  /** Upload an item to YouTube. `files` skips reading from storage (used by direct uploads). */
+  /**
+   * Upload an item to YouTube from this browser. `files` are the picked files (direct uploads);
+   * without them the files are fetched from the user's Drive (queued items).
+   */
   run: (item: Item, files?: { video: Blob; thumb?: Blob | null }) => Promise<void>;
   cancel: (itemId: string) => void;
 };
@@ -29,6 +32,7 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
   const yt = useYouTube();
   const [jobs, setJobs] = useState<Record<string, Job>>({});
   const aborts = useRef(new Map<string, AbortController>());
+  const autopilot = isReady(settings.autopilot) ? settings.autopilot : null;
 
   const setJob = (id: string, patch: Partial<Job> | null) =>
     setJobs((j) => {
@@ -52,26 +56,24 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
       const ctrl = new AbortController();
       aborts.current.set(item.id, ctrl);
       setJob(item.id, { itemId: item.id, title: item.title, phase: "preparing", progress: 0 });
+      const fromDrive = !memoryFiles.has(item.id) && item.file?.storage === "drive";
+      let token = "";
       try {
-        const token = await yt.ensureToken();
+        token = await yt.ensureToken(fromDrive);
         await patchItem(user.uid, item.id, { status: "uploading", error: null });
+        // Tell Autopilot to keep its hands off this one.
+        if (fromDrive && autopilot) await setRowStatus(token, autopilot, item.id, "uploading");
 
         const mem = memoryFiles.get(item.id);
-        const video = mem?.video ?? (item.file ? await loadFile(settings, item.file) : null);
+        const video = mem?.video ?? (item.file ? await downloadFromDrive(token, item.file.path) : null);
         if (!video) throw new Error("The video file is gone. Delete this item and add the video again.");
-        const thumb = mem?.thumb ?? (item.thumb ? await loadFile(settings, item.thumb).catch(() => null) : null);
+        const thumb = mem?.thumb ?? (item.thumb ? await downloadFromDrive(token, item.thumb.path).catch(() => null) : null);
 
         // A planned time that already passed means "publish now".
         const publishAt = item.publishAt && item.publishAt > Date.now() + 2 * 60_000 ? item.publishAt : null;
 
         setJob(item.id, { phase: "uploading", progress: 0 });
-        const videoId = await uploadVideo(
-          token,
-          video,
-          { ...item, publishAt },
-          (p) => setJob(item.id, { progress: p }),
-          ctrl.signal,
-        );
+        const videoId = await uploadVideo(token, video, { ...item, publishAt }, (p) => setJob(item.id, { progress: p }), ctrl.signal);
 
         let warning: string | null = null;
         if (thumb) {
@@ -83,31 +85,35 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        const keep = settings.keepFilesAfterUpload;
-        if (!keep) {
-          await dropFile(settings, item.file);
-          await dropFile(settings, item.thumb);
+        const status = publishAt ? "scheduled" : "uploaded";
+        if (fromDrive && autopilot) {
+          await setRowStatus(token, autopilot, item.id, status, videoId, warning ?? "");
+          if (item.file) await trashDriveFile(token, item.file.path);
+          if (item.thumb) await trashDriveFile(token, item.thumb.path);
         }
         memoryFiles.delete(item.id);
         await patchItem(user.uid, item.id, {
-          status: publishAt ? "scheduled" : "uploaded",
+          status,
           publishAt,
           youtubeId: videoId,
           uploadedAt: Date.now(),
           error: warning,
-          ...(keep ? {} : { file: null, thumb: null }),
+          file: null,
+          thumb: null,
         });
       } catch (e) {
         const msg = (e as Error).message;
         if (e instanceof YouTubeError && e.reason === "authExpired") clearStoredToken(settings.youtubeClientId);
-        await patchItem(user.uid, item.id, { status: "failed", error: msg }).catch(() => {});
+        // Hand a Drive item back to Autopilot so it can try again by itself.
+        if (fromDrive && autopilot && token) await setRowStatus(token, autopilot, item.id, "queued", "", msg).catch(() => {});
+        await patchItem(user.uid, item.id, { status: fromDrive ? "queued" : "failed", error: msg }).catch(() => {});
         throw e;
       } finally {
         aborts.current.delete(item.id);
         setJob(item.id, null);
       }
     },
-    [settings, user.uid, yt],
+    [settings.youtubeClientId, autopilot, user.uid, yt],
   );
 
   const cancel = useCallback((id: string) => aborts.current.get(id)?.abort(), []);

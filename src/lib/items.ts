@@ -11,15 +11,15 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import type { Privacy, StorageMode } from "./settings";
+import type { Privacy } from "./settings";
 
 export type ItemKind = "video" | "short";
 /**
- * queued    – file saved in the user's storage, waiting to be uploaded
- * uploading – upload in progress in some browser tab
+ * queued    – file is in the user's Drive; Autopilot uploads it before publishAt
+ * uploading – upload in progress (a browser tab or Autopilot)
  * scheduled – on YouTube as private, YouTube will publish at publishAt
  * uploaded  – on YouTube with its final privacy
- * failed    – last upload attempt failed; file is still in storage
+ * failed    – last upload attempt failed
  */
 export type ItemStatus = "queued" | "uploading" | "scheduled" | "uploaded" | "failed";
 
@@ -27,8 +27,8 @@ export type StoredFile = {
   name: string;
   size: number;
   type: string;
-  storage: StorageMode;
-  /** IndexedDB key (browser) or object path in the user's bucket (firebase). */
+  storage: "drive";
+  /** Google Drive file id. */
   path: string;
 };
 

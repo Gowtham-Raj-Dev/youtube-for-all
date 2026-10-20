@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from "./lib/auth";
 import { SettingsProvider } from "./lib/settings";
 import { YouTubeProvider } from "./lib/youtube-context";
 import { UploadsProvider } from "./lib/uploads";
+import { AutopilotProvider } from "./lib/autopilot-context";
 import { Spinner, ToastProvider } from "./components/ui";
 import { firebaseConfigured } from "./config";
 import Layout from "./components/Layout";
@@ -31,9 +32,11 @@ function RequireAuth() {
   return (
     <SettingsProvider>
       <YouTubeProvider>
-        <UploadsProvider>
-          <Outlet />
-        </UploadsProvider>
+        <AutopilotProvider>
+          <UploadsProvider>
+            <Outlet />
+          </UploadsProvider>
+        </AutopilotProvider>
       </YouTubeProvider>
     </SettingsProvider>
   );

@@ -1,0 +1,368 @@
+/**
+ * TubeFlow Autopilot — installed and updated automatically by the TubeFlow app.
+ * Please don't edit: the app overwrites this file when it updates Autopilot.
+ *
+ * Every 30 minutes it reads the "queue" sheet, takes videos whose publish time is within the
+ * next 26 hours, copies each from Google Drive to YouTube as a scheduled (private + publishAt)
+ * video, and writes the result back. YouTube then publishes it at the exact time.
+ */
+
+var SHEET_ID = '__SHEET_ID__';
+var VERSION = __VERSION__;
+var KEEP_FILES = __KEEP_FILES__;
+var DAILY_LIMIT = __DAILY_LIMIT__;
+
+var CHUNK = 16 * 1024 * 1024;            // multiple of 256 KiB; UrlFetch responses are capped at 50 MB
+var MAX_RUN_MS = 4.5 * 60 * 1000;        // Apps Script stops a run at 6 minutes
+var LOOKAHEAD_MS = 26 * 3600 * 1000;     // upload up to a day ahead of the publish time
+var MIN_SCHEDULE_MS = 10 * 60 * 1000;    // closer than this → publish right away instead
+var YT_UPLOAD = 'https://www.googleapis.com/upload/youtube/v3';
+var YT_API = 'https://www.googleapis.com/youtube/v3';
+var COLS = ['id', 'kind', 'title', 'description', 'tags', 'categoryId', 'privacy', 'madeForKids', 'notify',
+  'publishAt', 'fileId', 'thumbId', 'status', 'youtubeId', 'error', 'updatedAt', 'session', 'offset'];
+
+// ---------- Web app (opened from TubeFlow: Activate / Run now / Pause) ----------
+
+function doGet(e) {
+  var action = (e && e.parameter && e.parameter.action) || 'setup';
+  var lines = [];
+  try {
+    if (action === 'stop') {
+      removeTriggers();
+      setStatus({ trigger: 'off' });
+      lines.push('OK Autopilot paused. Activate it again from TubeFlow → Settings.');
+    } else if (action === 'run') {
+      lines = check();
+      lines.push('OK Run now: ' + tick());
+    } else {
+      installTrigger();
+      lines = check();
+    }
+  } catch (err) {
+    lines.push('ERROR ' + err.message);
+  }
+  return HtmlService.createHtmlOutput(page(action, lines)).setTitle('TubeFlow Autopilot');
+}
+
+function installTrigger() {
+  removeTriggers();
+  ScriptApp.newTrigger('tick').timeBased().everyMinutes(30).create();
+}
+
+function removeTriggers() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'tick') ScriptApp.deleteTrigger(t);
+  });
+}
+
+function check() {
+  var out = [];
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  out.push('OK Queue sheet found');
+  var on = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'tick'; });
+  out.push(on ? 'OK Runs automatically every 30 minutes' : 'ERROR Not scheduled — click Activate in TubeFlow');
+  var channel = '';
+  try {
+    var ch = api('get', YT_API + '/channels?part=snippet&mine=true');
+    channel = ch.items && ch.items[0] ? ch.items[0].snippet.title : '';
+    out.push(channel ? 'OK YouTube channel: ' + channel : 'ERROR This Google account has no YouTube channel');
+  } catch (err) {
+    out.push('ERROR YouTube: ' + err.message);
+  }
+  setStatus({ version: VERSION, trigger: on ? 'on' : 'off', channel: channel, lastCheck: Date.now(), sheet: ss.getName() });
+  return out;
+}
+
+function page(action, lines) {
+  var ok = lines.every(function (l) { return l.indexOf('ERROR') !== 0; });
+  var items = lines.map(function (l) {
+    var good = l.indexOf('OK ') === 0;
+    var text = l.replace(/^(OK|ERROR) /, '');
+    return '<li style="margin:10px 0;display:flex;gap:10px"><b style="color:' + (good ? '#22c55e' : '#ef4444') + '">' +
+      (good ? '✓' : '✗') + '</b><span>' + escapeHtml(text) + '</span></li>';
+  }).join('');
+  var title = action === 'stop' ? 'Autopilot paused' : ok ? 'Autopilot is ON' : 'Autopilot needs attention';
+  return '<div style="font-family:system-ui,sans-serif;max-width:520px;margin:40px auto;padding:24px;border-radius:16px;' +
+    'border:1px solid #ddd"><h2 style="margin:0 0 8px">' + title + '</h2><ul style="list-style:none;padding:0">' + items +
+    '</ul><p style="color:#666">You can close this tab and go back to TubeFlow.</p></div>';
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
+}
+
+// ---------- The scheduled run ----------
+
+function tick() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return 'another run is still working';
+  var started = Date.now();
+  var result = 'nothing due';
+  try {
+    var sheet = queueSheet();
+    var now = Date.now();
+    var todo = readRows(sheet).filter(function (r) {
+      if (r.status === 'uploading') return true;
+      return r.status === 'queued' && r.publishAt && new Date(r.publishAt).getTime() <= now + LOOKAHEAD_MS;
+    });
+    todo.sort(function (a, b) {
+      var ua = a.status === 'uploading' ? 0 : 1, ub = b.status === 'uploading' ? 0 : 1;
+      return ua - ub || new Date(a.publishAt).getTime() - new Date(b.publishAt).getTime();
+    });
+    var done = 0, failed = 0, note = '';
+    for (var i = 0; i < todo.length; i++) {
+      if (Date.now() - started > MAX_RUN_MS) { note = 'continues next run'; break; }
+      var r = readRow(sheet, todo[i].id);
+      if (!r || (r.status !== 'queued' && r.status !== 'uploading')) continue; // changed in the app meanwhile
+      if (r.status === 'queued' && uploadsToday() >= DAILY_LIMIT) { note = 'daily limit of ' + DAILY_LIMIT + ' reached'; break; }
+      try {
+        if (uploadRow(sheet, r, started) === 'done') done++;
+      } catch (err) {
+        if (err.reason === 'quotaExceeded' || err.reason === 'uploadLimitExceeded') {
+          writeRow(sheet, r.id, { error: err.message });
+          note = 'YouTube quota used up for today';
+          break;
+        }
+        if (err.retry) {
+          writeRow(sheet, r.id, { error: err.message + ' (will retry)' });
+          continue;
+        }
+        failed++;
+        writeRow(sheet, r.id, { status: 'failed', error: err.message, session: '', offset: '' });
+      }
+    }
+    if (todo.length) result = done + ' uploaded, ' + failed + ' failed' + (note ? ' — ' + note : '');
+  } catch (err) {
+    result = 'error: ' + err.message;
+  } finally {
+    setStatus({ lastRun: Date.now(), lastResult: result, version: VERSION });
+    lock.releaseLock();
+  }
+  return result;
+}
+
+function uploadRow(sheet, r, started) {
+  var token = ScriptApp.getOAuthToken();
+  var file;
+  try {
+    file = DriveApp.getFileById(r.fileId);
+  } catch (e) {
+    throw new Error('The video file is missing from Google Drive.');
+  }
+  if (file.isTrashed()) throw new Error('The video file was deleted from Google Drive.');
+  var size = file.getSize();
+  var mime = file.getMimeType() || 'video/*';
+  var publishAt = r.publishAt ? new Date(r.publishAt).getTime() : 0;
+  var session = r.session;
+  var offset = Number(r.offset || 0);
+
+  if (!session) {
+    var scheduled = publishAt > Date.now() + MIN_SCHEDULE_MS;
+    var body = {
+      snippet: {
+        title: r.title,
+        description: r.description,
+        tags: r.tags ? String(r.tags).split(',') : [],
+        categoryId: String(r.categoryId || '22')
+      },
+      status: {
+        privacyStatus: scheduled ? 'private' : (r.privacy || 'public'),
+        selfDeclaredMadeForKids: r.madeForKids === 'yes',
+        embeddable: true
+      }
+    };
+    if (scheduled) body.status.publishAt = new Date(publishAt).toISOString();
+    var init = UrlFetchApp.fetch(YT_UPLOAD + '/videos?uploadType=resumable&part=snippet,status&notifySubscribers=' + (r.notify !== 'no'), {
+      method: 'post',
+      contentType: 'application/json; charset=UTF-8',
+      headers: { Authorization: 'Bearer ' + token, 'X-Upload-Content-Type': mime, 'X-Upload-Content-Length': String(size) },
+      payload: JSON.stringify(body),
+      muteHttpExceptions: true
+    });
+    if (init.getResponseCode() >= 400) throw apiError(init);
+    session = header(init, 'Location');
+    if (!session) throw retryable('YouTube did not return an upload address');
+    offset = 0;
+    countUpload();
+    writeRow(sheet, r.id, { status: 'uploading', session: session, offset: 0, error: '' });
+  }
+
+  while (true) {
+    if (offset >= size) {
+      var q = putToYouTube(session, token, null, 'bytes */' + size, mime);
+      if (q.getResponseCode() === 200 || q.getResponseCode() === 201) return finish(sheet, r, JSON.parse(q.getContentText()).id, token, publishAt);
+      offset = rangeEnd(q);
+      if (offset >= size) throw retryable('YouTube is still processing the upload');
+    }
+    if (Date.now() - started > MAX_RUN_MS) {
+      writeRow(sheet, r.id, { offset: offset });
+      return 'partial';
+    }
+    var end = Math.min(offset + CHUNK, size);
+    var part = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + r.fileId + '?alt=media', {
+      headers: { Authorization: 'Bearer ' + token, Range: 'bytes=' + offset + '-' + (end - 1) },
+      muteHttpExceptions: true
+    });
+    if (part.getResponseCode() >= 400) throw retryable('Could not read the file from Drive (' + part.getResponseCode() + ')');
+    var put = putToYouTube(session, token, part.getContent(), 'bytes ' + offset + '-' + (end - 1) + '/' + size, mime);
+    var code = put.getResponseCode();
+    if (code === 200 || code === 201) return finish(sheet, r, JSON.parse(put.getContentText()).id, token, publishAt);
+    if (code === 308) { offset = rangeEnd(put); continue; }
+    if (code === 404 || code === 410) {
+      writeRow(sheet, r.id, { session: '', offset: '' });
+      throw retryable('Upload session expired, starting again');
+    }
+    if (code >= 500) {
+      writeRow(sheet, r.id, { offset: offset });
+      throw retryable('YouTube is busy (' + code + ')');
+    }
+    throw apiError(put);
+  }
+}
+
+function putToYouTube(session, token, bytes, contentRange, mime) {
+  var opts = {
+    method: 'put',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Range': contentRange },
+    muteHttpExceptions: true
+  };
+  if (bytes) { opts.payload = bytes; opts.contentType = mime; }
+  return UrlFetchApp.fetch(session, opts);
+}
+
+function finish(sheet, r, videoId, token, publishAt) {
+  var warning = '';
+  if (r.thumbId) {
+    try {
+      var img = DriveApp.getFileById(r.thumbId).getBlob();
+      var res = UrlFetchApp.fetch(YT_UPLOAD + '/thumbnails/set?uploadType=media&videoId=' + videoId, {
+        method: 'post', contentType: img.getContentType(), payload: img.getBytes(),
+        headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true
+      });
+      if (res.getResponseCode() >= 400) warning = 'Video is up, but the thumbnail was not set: ' + apiError(res).message;
+    } catch (e) {
+      warning = 'Video is up, but the thumbnail was not set: ' + e.message;
+    }
+  }
+  if (!KEEP_FILES) {
+    trash(r.fileId);
+    if (r.thumbId) trash(r.thumbId);
+  }
+  var scheduled = publishAt > Date.now();
+  writeRow(sheet, r.id, { status: scheduled ? 'scheduled' : 'uploaded', youtubeId: videoId, error: warning, session: '', offset: '' });
+  return 'done';
+}
+
+function trash(id) {
+  try { DriveApp.getFileById(id).setTrashed(true); } catch (e) { /* already gone */ }
+}
+
+// ---------- Sheet helpers ----------
+
+function queueSheet() {
+  return SpreadsheetApp.openById(SHEET_ID).getSheetByName('queue');
+}
+
+function readRows(sheet) {
+  var values = sheet.getDataRange().getValues();
+  var rows = [];
+  for (var i = 1; i < values.length; i++) {
+    if (!values[i][0]) continue;
+    var r = {};
+    for (var c = 0; c < COLS.length; c++) r[COLS[c]] = values[i][c] === undefined ? '' : values[i][c];
+    rows.push(r);
+  }
+  return rows;
+}
+
+function rowIndex(sheet, id) {
+  var last = sheet.getLastRow();
+  if (last < 2) return -1;
+  var ids = sheet.getRange(2, 1, last - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) if (String(ids[i][0]) === String(id)) return i + 2;
+  return -1;
+}
+
+function readRow(sheet, id) {
+  var n = rowIndex(sheet, id);
+  if (n < 0) return null;
+  var v = sheet.getRange(n, 1, 1, COLS.length).getValues()[0];
+  var r = {};
+  for (var c = 0; c < COLS.length; c++) r[COLS[c]] = v[c];
+  return r;
+}
+
+function writeRow(sheet, id, patch) {
+  var n = rowIndex(sheet, id);
+  if (n < 0) return;
+  patch.updatedAt = Date.now();
+  Object.keys(patch).forEach(function (k) {
+    var c = COLS.indexOf(k);
+    if (c >= 0) sheet.getRange(n, c + 1).setValue(patch[k]);
+  });
+  SpreadsheetApp.flush();
+}
+
+function setStatus(obj) {
+  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('status');
+  var last = sheet.getLastRow();
+  var values = last ? sheet.getRange(1, 1, last, 2).getValues() : [];
+  Object.keys(obj).forEach(function (k) {
+    var found = false;
+    for (var i = 0; i < values.length; i++) if (values[i][0] === k) { values[i][1] = obj[k]; found = true; }
+    if (!found) values.push([k, obj[k]]);
+  });
+  sheet.getRange(1, 1, values.length, 2).setValues(values);
+}
+
+// ---------- Misc ----------
+
+function api(method, url) {
+  var res = UrlFetchApp.fetch(url, { method: method, headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
+  if (res.getResponseCode() >= 400) throw apiError(res);
+  return JSON.parse(res.getContentText());
+}
+
+function apiError(res) {
+  var msg = 'Error ' + res.getResponseCode(), reason = '';
+  try {
+    var j = JSON.parse(res.getContentText());
+    msg = (j.error && j.error.message) || msg;
+    reason = (j.error && j.error.errors && j.error.errors[0] && j.error.errors[0].reason) || '';
+  } catch (e) { /* not JSON */ }
+  var err = new Error(String(msg).replace(/<[^>]+>/g, ''));
+  err.reason = reason;
+  if (reason === 'quotaExceeded') err.message = 'YouTube API daily quota is used up — Autopilot continues after it resets.';
+  return err;
+}
+
+function retryable(msg) {
+  var e = new Error(msg);
+  e.retry = true;
+  return e;
+}
+
+function header(res, name) {
+  var h = res.getAllHeaders();
+  for (var k in h) if (k.toLowerCase() === name.toLowerCase()) return Array.isArray(h[k]) ? h[k][0] : h[k];
+  return '';
+}
+
+function rangeEnd(res) {
+  var range = header(res, 'Range');
+  var m = range && String(range).match(/-(\d+)$/);
+  return m ? Number(m[1]) + 1 : 0;
+}
+
+function pacificDay() {
+  return Utilities.formatDate(new Date(), 'America/Los_Angeles', 'yyyy-MM-dd');
+}
+
+function uploadsToday() {
+  return Number(PropertiesService.getScriptProperties().getProperty('uploads:' + pacificDay()) || 0);
+}
+
+function countUpload() {
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty('uploads:' + pacificDay(), String(uploadsToday() + 1));
+}

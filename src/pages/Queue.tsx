@@ -1,25 +1,25 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { CalendarClock, Clapperboard, ExternalLink, HardDrive, ListVideo, Monitor, Pencil, Play, Rocket, Smartphone, Trash2 } from "lucide-react";
+import { Bot, CalendarClock, Clapperboard, ExternalLink, ListVideo, Pencil, Play, RefreshCw, Smartphone, Trash2 } from "lucide-react";
 import { useUser } from "../lib/auth";
 import { useSettings } from "../lib/settings";
-import { patchItem, removeItem, useItems, type Item } from "../lib/items";
+import { removeItem, useItems, type Item } from "../lib/items";
 import { hasMemoryFile, useUploads, type Job } from "../lib/uploads";
 import { useYouTube } from "../lib/youtube-context";
-import { dropFile } from "../lib/files";
-import { fmtBytes, fmtDateTime, fmtRelative, fromLocalInput, MIN_LEAD_MS, nextFreeSlots, toLocalInput } from "../lib/schedule";
-import { DAILY_QUOTA, UPLOAD_COST, useQuotaUsed } from "../lib/quota";
-import { Alert, Badge, Button, Card, CardHeader, cx, Empty, Field, Input, PageHeader, Progress, Spinner, StatusBadge, Textarea, useToast } from "../components/ui";
+import { useAutopilot } from "../lib/autopilot-context";
+import { statusTime } from "../lib/autopilot";
 import { parseTags, tagsLength } from "../lib/meta";
+import { fmtBytes, fmtDateTime, fmtRelative, fromLocalInput, MIN_LEAD_MS, toLocalInput } from "../lib/schedule";
+import { Alert, Badge, Button, Card, CardHeader, cx, Empty, Field, Input, PageHeader, Progress, Spinner, StatusBadge, Textarea, useToast } from "../components/ui";
 
-/** An "uploading" item with no live job in this tab was interrupted (tab closed, crash…). */
-export function effectiveStatus(item: Item, jobs: Record<string, Job>) {
-  if (item.status === "uploading" && !jobs[item.id] && Date.now() - item.updatedAt > 2 * 60_000) return "failed" as const;
+/** An "uploading" item with no live job in this tab, untouched for a while, was interrupted. */
+function effectiveStatus(item: Item, jobs: Record<string, Job>) {
+  if (item.status === "uploading" && !jobs[item.id] && item.file?.storage !== "drive" && Date.now() - item.updatedAt > 2 * 60_000) return "failed" as const;
   return item.status;
 }
 
 function EditDialog({ item, onClose }: { item: Item; onClose: () => void }) {
-  const user = useUser();
+  const autopilot = useAutopilot();
   const toast = useToast();
   const [title, setTitle] = useState(item.title);
   const [description, setDescription] = useState(item.description);
@@ -27,17 +27,15 @@ function EditDialog({ item, onClose }: { item: Item; onClose: () => void }) {
   const [time, setTime] = useState(item.publishAt ? toLocalInput(item.publishAt) : "");
   const [busy, setBusy] = useState(false);
   const tagList = parseTags(tags);
-  const bad = !title.trim() || title.length > 100 || description.length > 5000 || tagsLength(tagList) > 500 || /[<>]/.test(title + description);
+  const publishAt = time ? fromLocalInput(time) : null;
+  const bad =
+    !title.trim() || title.length > 100 || description.length > 5000 || tagsLength(tagList) > 500 || /[<>]/.test(title + description) || !publishAt || publishAt < Date.now() + MIN_LEAD_MS;
 
   const save = async () => {
     setBusy(true);
     try {
-      await patchItem(user.uid, item.id, {
-        title: title.trim(),
-        description,
-        tags: tagList,
-        publishAt: time ? fromLocalInput(time) : null,
-      });
+      await autopilot.edit(item, { title: title.trim(), description, tags: tagList, publishAt });
+      toast("ok", "Saved.");
       onClose();
     } catch (e) {
       toast("error", (e as Error).message);
@@ -61,8 +59,8 @@ function EditDialog({ item, onClose }: { item: Item; onClose: () => void }) {
           <Field label="Tags" counter={`${tagsLength(tagList)}/500`}>
             <Input value={tags} onChange={(e) => setTags(e.target.value)} />
           </Field>
-          <Field label="Planned publish time" hint="Leave empty to decide later.">
-            <Input type="datetime-local" value={time} onChange={(e) => setTime(e.target.value)} />
+          <Field label="Publish time" hint="At least 15 minutes from now.">
+            <Input type="datetime-local" value={time} min={toLocalInput(Date.now())} onChange={(e) => setTime(e.target.value)} />
           </Field>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
@@ -78,27 +76,23 @@ export default function Queue() {
   const user = useUser();
   const { settings } = useSettings();
   const yt = useYouTube();
+  const autopilot = useAutopilot();
   const { jobs, run } = useUploads();
   const { items, loading } = useItems(user.uid);
   const toast = useToast();
-  const quotaUsed = useQuotaUsed();
   const [editing, setEditing] = useState<Item | null>(null);
-  const [bulk, setBulk] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const waiting = items
-    .filter((i) => {
-      const s = effectiveStatus(i, jobs);
-      return s === "queued" || s === "failed" || s === "uploading";
-    })
+    .filter((i) => ["queued", "failed", "uploading"].includes(effectiveStatus(i, jobs)))
     .sort((a, b) => (a.publishAt ?? Infinity) - (b.publishAt ?? Infinity) || a.createdAt - b.createdAt);
   const done = items.filter((i) => i.status === "scheduled" || i.status === "uploaded").slice(0, 12);
-  const canUpload = Math.max(0, Math.floor((DAILY_QUOTA - quotaUsed) / UPLOAD_COST));
-  const ready = waiting.filter((i) => !jobs[i.id] && (i.file || hasMemoryFile(i.id)));
+  const next = waiting.find((i) => i.status === "queued" && i.publishAt);
+  const lastRun = statusTime(autopilot.status?.lastRun);
 
   const uploadOne = async (item: Item) => {
-    if (!settings.youtubeClientId) return toast("error", "Add your OAuth Client ID in Settings first.");
     try {
-      await yt.ensureToken();
+      await yt.ensureToken(item.file?.storage === "drive");
     } catch (e) {
       return toast("error", (e as Error).message);
     }
@@ -107,79 +101,64 @@ export default function Queue() {
       .catch((e) => toast("error", `“${item.title}”: ${(e as Error).message}`));
   };
 
-  const uploadAll = async () => {
-    if (!settings.youtubeClientId) return toast("error", "Add your OAuth Client ID in Settings first.");
-    const batch = ready.slice(0, Math.max(1, canUpload));
-    if (!batch.length) return;
-    const needSlot = batch.filter((i) => !i.publishAt || i.publishAt < Date.now() + MIN_LEAD_MS);
-    const slots = nextFreeSlots(settings.slots, items, needSlot.length);
-    if (slots.length < needSlot.length) return toast("error", "Not enough free daily slots — add times in Settings → Schedule.");
-    const msg =
-      `Upload ${batch.length} video${batch.length > 1 ? "s" : ""} to YouTube?\n\n` +
-      (needSlot.length ? `${needSlot.length} without a future time will go to the next free slots (first: ${fmtDateTime(slots[0])}).\n` : "") +
-      (ready.length > batch.length ? `\nOnly ${batch.length} fit in today's API quota; the rest stay queued.` : "");
-    if (!confirm(msg)) return;
+  const remove = async (item: Item) => {
+    if (!confirm(`Delete “${item.title}”? It won't be uploaded and its file is removed from your Drive.`)) return;
+    setDeleting(item.id);
     try {
-      await yt.ensureToken();
+      if (item.file?.storage === "drive") await autopilot.remove(item);
+      else await removeItem(user.uid, item.id);
     } catch (e) {
-      return toast("error", (e as Error).message);
-    }
-    setBulk(true);
-    let ok = 0;
-    try {
-      for (const item of batch) {
-        const i = needSlot.indexOf(item);
-        const publishAt = i >= 0 ? slots[i] : item.publishAt;
-        if (i >= 0) await patchItem(user.uid, item.id, { publishAt });
-        try {
-          await run({ ...item, publishAt });
-          ok++;
-        } catch (e) {
-          toast("error", `“${item.title}”: ${(e as Error).message}`);
-          if (/quota|session expired/i.test((e as Error).message)) break;
-        }
-      }
+      toast("error", (e as Error).message);
     } finally {
-      setBulk(false);
-      if (ok) toast("ok", `${ok} video${ok > 1 ? "s" : ""} sent to YouTube.`);
+      setDeleting(null);
     }
   };
 
-  const remove = async (item: Item) => {
-    if (!confirm(`Delete “${item.title}” from the queue? The saved file is deleted too.`)) return;
-    await dropFile(settings, item.file);
-    await dropFile(settings, item.thumb);
-    await removeItem(user.uid, item.id);
-  };
+  const sync = () =>
+    autopilot
+      .sync()
+      .then(() => toast("ok", "Synced with Autopilot."))
+      .catch((e) => toast("error", (e as Error).message));
 
   return (
     <>
       <PageHeader
         title="Queue"
-        subtitle="Videos saved and waiting. Push them to YouTube whenever you're ready."
+        subtitle="Videos waiting to go to YouTube. Autopilot uploads each one before its publish time."
         action={
-          ready.length > 0 && (
-            <Button variant="primary" icon={<Rocket className="size-4" />} loading={bulk} onClick={uploadAll}>
-              Upload all ({Math.min(ready.length, Math.max(1, canUpload))})
+          autopilot.config && (
+            <Button icon={<RefreshCw className={cx("size-4", autopilot.syncing && "animate-spin")} />} onClick={sync} disabled={autopilot.syncing}>
+              Sync
             </Button>
           )
         }
       />
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-3">
-        <Stat label="Waiting" value={waiting.length} />
-        <Stat label="Storage" value={settings.storageMode === "firebase" ? "Your Firebase" : "This browser"} icon={settings.storageMode === "firebase" ? <HardDrive className="size-4" /> : <Monitor className="size-4" />} />
-        <Stat label="Uploads left today (est.)" value={canUpload} />
+      <div className="mb-6">
+        {!autopilot.config ? (
+          <Alert tone="info" title="Autopilot is not set up" action={<Link to="/settings#autopilot"><Button size="sm" variant="primary">Set up</Button></Link>}>
+            With Autopilot you can add 100s of videos and they go out on schedule even when your PC is off.
+          </Alert>
+        ) : !yt.driveAllowed ? (
+          <Alert tone="warn" title="Reconnect to see live status" action={<Button size="sm" variant="primary" onClick={() => yt.connect(true).catch((e) => toast("error", e.message))}>Connect</Button>}>
+            Autopilot keeps working in the background. Connect to sync its progress here.
+          </Alert>
+        ) : autopilot.running ? (
+          <Alert tone="ok" title="Autopilot is running">
+            Checks every 30 minutes{lastRun ? ` · last run ${fmtRelative(lastRun)}` : ""}{autopilot.status?.lastResult ? ` · ${autopilot.status.lastResult}` : ""}
+          </Alert>
+        ) : autopilot.status ? (
+          <Alert tone="warn" title="Autopilot is not running" action={<Link to="/settings#autopilot"><Button size="sm" variant="primary">Fix</Button></Link>}>
+            Open Settings → Autopilot and click “Activate Autopilot”.
+          </Alert>
+        ) : null}
       </div>
 
-      {settings.storageMode === "browser" && waiting.some((i) => i.file?.storage === "browser") && (
-        <div className="mb-6">
-          <Alert tone="info" title="Files are saved in this browser only">
-            Upload them from this same browser. To use your queue from any device, connect your own Firebase Storage in{" "}
-            <Link to="/settings" className="font-medium text-fg underline">Settings</Link>.
-          </Alert>
-        </div>
-      )}
+      <div className="mb-6 grid gap-3 sm:grid-cols-3">
+        <Stat label="Waiting" value={waiting.length} />
+        <Stat label="Next to go live" value={next?.publishAt ? fmtDateTime(next.publishAt) : "—"} />
+        <Stat label="Size in Drive" value={fmtBytes(waiting.reduce((n, i) => n + (i.file?.size ?? 0), 0))} />
+      </div>
 
       <Card>
         {loading ? (
@@ -192,49 +171,59 @@ export default function Queue() {
             title="Your queue is empty"
             action={
               <div className="flex flex-wrap justify-center gap-2">
-                <Link to="/upload/video"><Button icon={<Clapperboard className="size-4" />}>Add a video</Button></Link>
-                <Link to="/upload/short"><Button icon={<Smartphone className="size-4" />}>Add a Short</Button></Link>
+                <Link to="/upload/short"><Button variant="primary" icon={<Smartphone className="size-4" />}>Add Shorts</Button></Link>
+                <Link to="/upload/video"><Button icon={<Clapperboard className="size-4" />}>Add videos</Button></Link>
               </div>
             }
           >
-            On the upload page choose <b>Queue</b> to save videos here without uploading them yet.
+            Pick one or many videos, choose <b>Schedule</b>, and they'll appear here until they go live.
           </Empty>
         ) : (
           <ul className="divide-y divide-line">
             {waiting.map((item) => {
               const job = jobs[item.id];
               const status = effectiveStatus(item, jobs);
-              const missing = !item.file && !hasMemoryFile(item.id);
+              const onDrive = item.file?.storage === "drive";
+              const missing = !onDrive && !hasMemoryFile(item.id);
               return (
                 <li key={item.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-                  <div className={cx("grid size-12 shrink-0 place-items-center rounded-xl", item.kind === "short" ? "bg-accent-2/10 text-accent-2" : "bg-accent-soft text-accent")}>
+                  <div className={cx("grid size-11 shrink-0 place-items-center rounded-xl", item.kind === "short" ? "bg-accent-2/10 text-accent-2" : "bg-accent-soft text-accent")}>
                     {item.kind === "short" ? <Smartphone className="size-5" /> : <Clapperboard className="size-5" />}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="truncate font-medium">{item.title}</span>
                       <StatusBadge status={status} />
-                      {item.kind === "short" && <Badge>Short</Badge>}
+                      {onDrive && <Badge><Bot className="size-3" /> Autopilot</Badge>}
                     </div>
                     <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
                       <span className="flex items-center gap-1">
                         <CalendarClock className="size-3.5" />
-                        {item.publishAt ? (item.publishAt > Date.now() ? fmtDateTime(item.publishAt) : `${fmtDateTime(item.publishAt)} (passed → publishes on upload)`) : "No time yet"}
+                        {item.publishAt ? `${fmtDateTime(item.publishAt)} · ${fmtRelative(item.publishAt)}` : "No time"}
                       </span>
-                      {item.file && <span>{fmtBytes(item.file.size)} · {item.file.storage === "firebase" ? "Firebase" : "Browser"}</span>}
+                      {item.file && <span>{fmtBytes(item.file.size)}</span>}
                     </div>
-                    {item.error && status === "failed" && <p className="mt-1.5 text-xs text-danger">{item.error}</p>}
-                    {missing && <p className="mt-1.5 text-xs text-danger">The file is not available. Delete this and add the video again.</p>}
+                    {item.error && <p className={cx("mt-1.5 text-xs", status === "failed" ? "text-danger" : "text-warn")}>{item.error}</p>}
+                    {missing && <p className="mt-1.5 text-xs text-danger">This upload was interrupted and the file is not saved anywhere. Delete it and add the video again.</p>}
                     {job && <Progress value={job.phase === "uploading" ? job.progress : 0.02} className="mt-2.5" />}
                   </div>
                   <div className="flex shrink-0 gap-2">
-                    <Button size="sm" variant="primary" icon={<Play className="size-3.5" />} disabled={!!job || bulk || missing} onClick={() => uploadOne(item)}>
-                      {status === "failed" ? "Retry" : "Upload"}
+                    <Button
+                      size="sm"
+                      variant={status === "failed" ? "primary" : "secondary"}
+                      icon={<Play className="size-3.5" />}
+                      disabled={!!job || missing || (status === "uploading" && onDrive) || !settings.youtubeClientId}
+                      onClick={() => uploadOne(item)}
+                      title="Upload from this browser right now instead of waiting for Autopilot"
+                    >
+                      {status === "failed" ? "Retry" : "Upload now"}
                     </Button>
-                    <Button size="sm" variant="ghost" disabled={!!job} onClick={() => setEditing(item)} title="Edit">
-                      <Pencil className="size-4" />
-                    </Button>
-                    <Button size="sm" variant="ghost" disabled={!!job} onClick={() => remove(item)} title="Delete" className="hover:text-danger">
+                    {onDrive && (
+                      <Button size="sm" variant="ghost" disabled={!!job || status === "uploading"} onClick={() => setEditing(item)} title="Edit">
+                        <Pencil className="size-4" />
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" loading={deleting === item.id} disabled={!!job || (status === "uploading" && onDrive)} onClick={() => remove(item)} title="Delete" className="hover:text-danger">
                       <Trash2 className="size-4" />
                     </Button>
                   </div>
@@ -272,14 +261,11 @@ export default function Queue() {
   );
 }
 
-function Stat({ label, value, icon }: { label: string; value: React.ReactNode; icon?: React.ReactNode }) {
+function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <Card className="px-4 py-3.5">
       <div className="text-xs text-muted">{label}</div>
-      <div className="mt-1 flex items-center gap-2 text-lg font-semibold">
-        {icon}
-        {value}
-      </div>
+      <div className="mt-1 truncate text-lg font-semibold">{value}</div>
     </Card>
   );
 }

@@ -2,12 +2,15 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { useUser } from "./auth";
 import { useSettings } from "./settings";
 import {
+  AUTOPILOT_SCOPES,
   clearStoredToken,
   getMyChannel,
   getStoredToken,
   requestToken,
   revokeToken,
+  tokenHasScopes,
   YouTubeError,
+  YT_SCOPES,
   type Channel,
 } from "./youtube";
 
@@ -15,12 +18,14 @@ type YouTubeState = {
   /** Last known channel (cached, so the dashboard shows it even when the token has expired). */
   channel: Channel | null;
   connected: boolean;
+  /** The current token also covers Drive + Apps Script (needed by Autopilot). */
+  driveAllowed: boolean;
   connecting: boolean;
   error: string | null;
   /** Interactive: may open Google's popup. Call from a click handler. */
-  connect: () => Promise<string>;
-  /** A valid token, connecting if needed. */
-  ensureToken: () => Promise<string>;
+  connect: (withDrive?: boolean) => Promise<string>;
+  /** A valid token (with Drive scopes if asked), connecting if needed. */
+  ensureToken: (needDrive?: boolean) => Promise<string>;
   disconnect: () => void;
   refreshChannel: () => Promise<void>;
 };
@@ -31,6 +36,7 @@ export function YouTubeProvider({ children }: { children: ReactNode }) {
   const user = useUser();
   const { settings } = useSettings();
   const clientId = settings.youtubeClientId;
+  const wantsDrive = !!settings.autopilot;
   const cacheKey = `yt_channel:${user.uid}`;
 
   const [channel, setChannel] = useState<Channel | null>(() => {
@@ -41,16 +47,20 @@ export function YouTubeProvider({ children }: { children: ReactNode }) {
     }
   });
   const [connected, setConnected] = useState(() => !!clientId && !!getStoredToken(clientId));
+  const [driveAllowed, setDriveAllowed] = useState(() => !!clientId && tokenHasScopes(clientId, AUTOPILOT_SCOPES));
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Token expiry: re-check every 30 s so the UI flips to "Reconnect" on time.
+  const tick = useCallback(() => {
+    setConnected(!!clientId && !!getStoredToken(clientId));
+    setDriveAllowed(!!clientId && !!getStoredToken(clientId) && tokenHasScopes(clientId, AUTOPILOT_SCOPES));
+  }, [clientId]);
   useEffect(() => {
-    const tick = () => setConnected(!!clientId && !!getStoredToken(clientId));
     tick();
     const id = setInterval(tick, 30_000);
     return () => clearInterval(id);
-  }, [clientId]);
+  }, [tick]);
 
   const saveChannel = useCallback(
     (c: Channel | null) => {
@@ -65,33 +75,42 @@ export function YouTubeProvider({ children }: { children: ReactNode }) {
     [cacheKey],
   );
 
-  const connect = useCallback(async () => {
-    if (!clientId) throw new YouTubeError("Add your OAuth Client ID in Settings → YouTube first.");
-    setConnecting(true);
-    setError(null);
-    try {
-      const token = await requestToken(clientId, user.email ?? undefined);
-      saveChannel(await getMyChannel(token));
-      setConnected(true);
-      return token;
-    } catch (e) {
-      setError((e as Error).message);
-      throw e;
-    } finally {
-      setConnecting(false);
-    }
-  }, [clientId, user.email, saveChannel]);
+  const connect = useCallback(
+    async (withDrive = wantsDrive) => {
+      if (!clientId) throw new YouTubeError("Add your OAuth Client ID in Settings → YouTube first.");
+      setConnecting(true);
+      setError(null);
+      try {
+        const scopes = withDrive ? [...YT_SCOPES, ...AUTOPILOT_SCOPES] : YT_SCOPES;
+        const token = await requestToken(clientId, scopes, user.email ?? undefined);
+        saveChannel(await getMyChannel(token));
+        tick();
+        return token;
+      } catch (e) {
+        setError((e as Error).message);
+        tick();
+        throw e;
+      } finally {
+        setConnecting(false);
+      }
+    },
+    [clientId, user.email, saveChannel, wantsDrive, tick],
+  );
 
-  const ensureToken = useCallback(async () => {
-    const t = clientId ? getStoredToken(clientId) : null;
-    return t ?? connect();
-  }, [clientId, connect]);
+  const ensureToken = useCallback(
+    async (needDrive = false) => {
+      const t = clientId ? getStoredToken(clientId) : null;
+      if (t && (!needDrive || tokenHasScopes(clientId, AUTOPILOT_SCOPES))) return t;
+      return connect(needDrive || wantsDrive);
+    },
+    [clientId, connect, wantsDrive],
+  );
 
   const disconnect = useCallback(() => {
     if (clientId) revokeToken(clientId);
     saveChannel(null);
-    setConnected(false);
-  }, [clientId, saveChannel]);
+    tick();
+  }, [clientId, saveChannel, tick]);
 
   const refreshChannel = useCallback(async () => {
     const t = clientId ? getStoredToken(clientId) : null;
@@ -101,15 +120,13 @@ export function YouTubeProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       if (e instanceof YouTubeError && e.status === 401) {
         clearStoredToken(clientId);
-        setConnected(false);
+        tick();
       }
     }
-  }, [clientId, saveChannel]);
+  }, [clientId, saveChannel, tick]);
 
   return (
-    <YouTubeContext.Provider
-      value={{ channel, connected, connecting, error, connect, ensureToken, disconnect, refreshChannel }}
-    >
+    <YouTubeContext.Provider value={{ channel, connected, driveAllowed, connecting, error, connect, ensureToken, disconnect, refreshChannel }}>
       {children}
     </YouTubeContext.Provider>
   );

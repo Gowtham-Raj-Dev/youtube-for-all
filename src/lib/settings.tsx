@@ -3,23 +3,14 @@ import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import { useUser } from "./auth";
 
-export type Privacy = "public" | "unlisted" | "private";
-export type StorageMode = "firebase" | "browser";
+import type { AutopilotConfig } from "./autopilot";
 
-/** The user's own Firebase web app config — used only for their own Storage bucket. */
-export type UserFirebaseConfig = {
-  apiKey: string;
-  authDomain: string;
-  projectId: string;
-  storageBucket: string;
-  appId: string;
-  messagingSenderId?: string;
-};
+export type Privacy = "public" | "unlisted" | "private";
 
 export type Settings = {
   youtubeClientId: string;
-  storageMode: StorageMode;
-  userFirebase: UserFirebaseConfig | null;
+  /** Drive folder + sheet + Apps Script in the user's account; partial while setup is unfinished. */
+  autopilot: Partial<AutopilotConfig> | null;
   /** Daily publish times, "HH:MM" in the browser's local time. */
   slots: string[];
   defaults: {
@@ -36,8 +27,7 @@ export type Settings = {
 
 export const DEFAULT_SETTINGS: Settings = {
   youtubeClientId: "",
-  storageMode: "browser",
-  userFirebase: null,
+  autopilot: null,
   slots: ["08:00", "13:00", "18:30"],
   defaults: {
     privacy: "public",

@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { ArrowRight, CalendarClock, Check, Clapperboard, Eye, Gauge, ListVideo, PlaySquare, RefreshCw, Smartphone, Upload, Users, Youtube } from "lucide-react";
+import { ArrowRight, Bot, CalendarClock, Check, Clapperboard, Eye, Gauge, ListVideo, PlaySquare, RefreshCw, Smartphone, Users, Youtube } from "lucide-react";
 import { useUser } from "../lib/auth";
 import { useSettings } from "../lib/settings";
 import { useItems } from "../lib/items";
 import { useYouTube } from "../lib/youtube-context";
+import { useAutopilot } from "../lib/autopilot-context";
+import { statusTime } from "../lib/autopilot";
 import { getRecentUploads, getStoredToken, type RecentUpload } from "../lib/youtube";
 import { DAILY_QUOTA, quotaResetLabel, UPLOAD_COST, useQuotaUsed } from "../lib/quota";
 import { fmtCount, fmtDateTime, fmtRelative } from "../lib/schedule";
@@ -14,6 +16,7 @@ export default function Dashboard() {
   const user = useUser();
   const { settings } = useSettings();
   const yt = useYouTube();
+  const autopilot = useAutopilot();
   const { items } = useItems(user.uid);
   const quotaUsed = useQuotaUsed();
   const toast = useToast();
@@ -35,9 +38,9 @@ export default function Dashboard() {
 
   const steps = [
     { done: true, label: "Sign in", to: "" },
-    { done: !!settings.youtubeClientId, label: "Add your YouTube OAuth Client ID", to: "/guide" },
-    { done: !!yt.channel, label: "Connect your YouTube channel", to: "/settings" },
-    { done: settings.storageMode === "browser" || !!settings.userFirebase, label: "Choose where queue files are stored", to: "/settings#storage" },
+    { done: !!settings.youtubeClientId, label: "Add your YouTube OAuth Client ID", to: "/settings#youtube" },
+    { done: !!yt.channel, label: "Connect your YouTube channel", to: "/settings#youtube" },
+    { done: !!autopilot.config, label: "Turn on Autopilot (PC can be off)", to: "/settings#autopilot" },
   ];
   const setupDone = steps.every((s) => s.done);
   const firstName = (user.displayName ?? "").split(" ")[0] || "there";
@@ -132,7 +135,21 @@ export default function Dashboard() {
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile icon={<CalendarClock className="size-5" />} label="Scheduled" value={scheduled} to="/schedule" />
         <StatTile icon={<ListVideo className="size-5" />} label="In queue" value={queued} to="/queue" />
-        <StatTile icon={<Upload className="size-5" />} label="Sent this week" value={sentThisWeek} />
+        <Link to="/settings#autopilot">
+          <Card className="h-full p-4 transition hover:border-accent/40">
+            <div className="flex items-center gap-2 text-sm text-muted">
+              <Bot className="size-5 text-accent" /> Autopilot
+            </div>
+            <div className={cx("mt-2 text-2xl font-bold", autopilot.running ? "text-ok" : autopilot.config ? "text-warn" : "text-faint")}>
+              {autopilot.running ? "Running" : autopilot.config ? (autopilot.status ? "Not active" : "Set up") : "Off"}
+            </div>
+            <p className="mt-1 text-[11px] text-faint">
+              {autopilot.running && statusTime(autopilot.status?.lastRun)
+                ? `last run ${fmtRelative(statusTime(autopilot.status?.lastRun)!)} · ${sentThisWeek} sent this week`
+                : `${sentThisWeek} sent this week`}
+            </p>
+          </Card>
+        </Link>
         <Card className="p-4">
           <div className="flex items-center gap-2 text-sm text-muted">
             <Gauge className="size-5 text-accent" /> API quota today

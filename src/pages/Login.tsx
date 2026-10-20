@@ -8,9 +8,9 @@ import { Alert, Spinner } from "../components/ui";
 const FEATURES = [
   { icon: Smartphone, title: "Videos & Shorts", text: "Upload long videos and Shorts with title, tags, thumbnail and more." },
   { icon: CalendarClock, title: "Auto schedule", text: "Pick daily time slots. YouTube publishes on time — even with your laptop off." },
-  { icon: ListVideo, title: "Queue", text: "Keep a stack of ready videos and push them to the next free slots in one click." },
+  { icon: ListVideo, title: "Bulk + Autopilot", text: "Add 100 videos at once. They go live on schedule even with your PC switched off." },
   { icon: KeyRound, title: "Your own API", text: "Uses your own YouTube API project, so your quota is yours alone." },
-  { icon: HardDrive, title: "Your own storage", text: "Queue files stay in your Firebase Storage or your browser. Never on our side." },
+  { icon: HardDrive, title: "Your own Drive", text: "Video files wait in your own Google Drive. Never on our servers." },
   { icon: ShieldCheck, title: "100% free", text: "No subscription, no card. Open the site, sign in, follow the guide." },
 ];
 

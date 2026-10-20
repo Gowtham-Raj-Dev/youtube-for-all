@@ -4,16 +4,23 @@
 
 import type { Privacy } from "./settings";
 import { addQuota } from "./quota";
+import { sendResumable } from "./resumable";
 
-const SCOPES = [
+export const YT_SCOPES = [
   "https://www.googleapis.com/auth/youtube.upload",
   "https://www.googleapis.com/auth/youtube.readonly",
-].join(" ");
+];
+/** Extra scopes for Autopilot: files this app creates in Drive, and installing the Apps Script. */
+export const AUTOPILOT_SCOPES = [
+  "https://www.googleapis.com/auth/drive.file",
+  "https://www.googleapis.com/auth/script.projects",
+  "https://www.googleapis.com/auth/script.deployments",
+];
 
 const API = "https://www.googleapis.com/youtube/v3";
 const UPLOAD_API = "https://www.googleapis.com/upload/youtube/v3";
 
-type TokenResponse = { access_token?: string; expires_in?: number; error?: string; error_description?: string };
+type TokenResponse = { access_token?: string; expires_in?: number; scope?: string; error?: string; error_description?: string };
 type TokenClient = { requestAccessToken: (o?: { prompt?: string; login_hint?: string }) => void };
 declare global {
   interface Window {
@@ -23,6 +30,7 @@ declare global {
           initTokenClient: (cfg: {
             client_id: string;
             scope: string;
+            include_granted_scopes?: boolean;
             callback: (r: TokenResponse) => void;
             error_callback?: (e: { type: string; message?: string }) => void;
           }) => TokenClient;
@@ -45,18 +53,27 @@ export class YouTubeError extends Error {
 
 // ---------- Token ----------
 
+type StoredToken = { token: string; exp: number; scope: string };
 const tokenKey = (clientId: string) => `yt_token:${clientId}`;
 
-export function getStoredToken(clientId: string): string | null {
+function readToken(clientId: string): StoredToken | null {
   try {
     const raw = sessionStorage.getItem(tokenKey(clientId));
     if (!raw) return null;
-    const t = JSON.parse(raw) as { token: string; exp: number };
+    const t = JSON.parse(raw) as StoredToken;
     // Keep a 2-minute margin so a request never starts with an about-to-expire token.
-    return t.exp - Date.now() > 120_000 ? t.token : null;
+    return t.exp - Date.now() > 120_000 ? t : null;
   } catch {
     return null;
   }
+}
+
+export const getStoredToken = (clientId: string) => readToken(clientId)?.token ?? null;
+
+/** True when the current token includes every scope in `scopes`. */
+export function tokenHasScopes(clientId: string, scopes: string[]) {
+  const granted = (readToken(clientId)?.scope ?? "").split(" ");
+  return scopes.every((s) => granted.includes(s));
 }
 
 export function clearStoredToken(clientId: string) {
@@ -80,25 +97,32 @@ export function isValidClientId(id: string) {
 }
 
 /** Opens Google's consent popup (or reuses the grant silently) and returns an access token. */
-export async function requestToken(clientId: string, loginHint?: string): Promise<string> {
+export async function requestToken(clientId: string, scopes: string[], loginHint?: string): Promise<string> {
   if (!isValidClientId(clientId)) throw new YouTubeError("The OAuth Client ID looks wrong. It should end with .apps.googleusercontent.com");
   const google = await waitForGis();
   return new Promise((resolve, reject) => {
     const client = google.accounts.oauth2.initTokenClient({
       client_id: clientId.trim(),
-      scope: SCOPES,
+      scope: scopes.join(" "),
+      include_granted_scopes: true,
       callback: (r) => {
         if (r.error || !r.access_token) {
           reject(new YouTubeError(r.error_description || r.error || "Google did not return a token."));
           return;
         }
+        const granted = (r.scope ?? "").split(" ");
+        const missing = scopes.filter((s) => !granted.includes(s));
         try {
           sessionStorage.setItem(
             tokenKey(clientId),
-            JSON.stringify({ token: r.access_token, exp: Date.now() + (r.expires_in ?? 3599) * 1000 }),
+            JSON.stringify({ token: r.access_token, exp: Date.now() + (r.expires_in ?? 3599) * 1000, scope: r.scope ?? "" }),
           );
         } catch {
           /* private mode: token still works for this call */
+        }
+        if (missing.length) {
+          reject(new YouTubeError("Some permissions were not allowed. Click connect again and tick every box on Google's screen.", 0, "scopesMissing"));
+          return;
         }
         resolve(r.access_token);
       },
@@ -123,10 +147,10 @@ export function revokeToken(clientId: string) {
   if (token) window.google?.accounts.oauth2.revoke(token);
 }
 
-// ---------- Plain API calls ----------
+// ---------- Errors ----------
 
-async function parseError(res: Response): Promise<YouTubeError> {
-  let message = `YouTube API error ${res.status}`;
+export async function parseError(res: Response): Promise<YouTubeError> {
+  let message = `Google API error ${res.status}`;
   let reason = "";
   try {
     const body = await res.json();
@@ -138,18 +162,28 @@ async function parseError(res: Response): Promise<YouTubeError> {
   return friendlyError(res.status, reason, message);
 }
 
-function friendlyError(status: number, reason: string, message: string) {
+const ENABLE_APIS = "https://console.cloud.google.com/flows/enableapi?apiid=youtube.googleapis.com,drive.googleapis.com,sheets.googleapis.com,script.googleapis.com";
+
+export function friendlyError(status: number, reason: string, message: string) {
   if (reason === "quotaExceeded" || reason === "dailyLimitExceeded")
     return new YouTubeError("Your YouTube API daily quota is used up. It resets at midnight Pacific time (12:30–1:30 PM IST).", status, reason);
   if (reason === "uploadLimitExceeded")
     return new YouTubeError("YouTube's daily upload limit for this channel is reached. Try again tomorrow.", status, reason);
   if (reason === "youtubeSignupRequired")
     return new YouTubeError("This Google account has no YouTube channel yet. Create one on youtube.com first.", status, reason);
-  if (reason === "accessNotConfigured" || /has not been used|is disabled/i.test(message))
-    return new YouTubeError("YouTube Data API v3 is not enabled in your Google Cloud project. Enable it (see the setup guide) and wait 2 minutes.", status, reason);
-  if (status === 401) return new YouTubeError("Your YouTube session expired. Click “Connect YouTube” again.", status, "authExpired");
+  if (/User has not enabled the Apps Script API/i.test(message))
+    return new YouTubeError("Apps Script API is off in your Google account. Turn it on at script.google.com/home/usersettings, wait 1 minute, then try again.", status, "scriptApiOff");
+  if (reason === "accessNotConfigured" || reason === "SERVICE_DISABLED" || /has not been used in project|is disabled/i.test(message)) {
+    const api = /drive/i.test(message) ? "Google Drive API" : /sheets/i.test(message) ? "Google Sheets API" : /script/i.test(message) ? "Apps Script API" : "YouTube Data API v3";
+    return new YouTubeError(`${api} is not enabled in your Google Cloud project. Enable it (Settings → Autopilot, step 1: ${ENABLE_APIS}) and wait 2 minutes.`, status, "apiDisabled");
+  }
+  if (status === 401) return new YouTubeError("Your Google session expired. Click “Connect” again.", status, "authExpired");
+  if (status === 403 && /insufficient|scope/i.test(message))
+    return new YouTubeError("Google Drive permission is missing. Click “Allow Google Drive” in Settings and tick every box.", status, "scopesMissing");
   return new YouTubeError(message.replace(/<[^>]+>/g, ""), status, reason);
 }
+
+// ---------- Plain API calls ----------
 
 async function get<T>(token: string, path: string, params: Record<string, string>, units = 1): Promise<T> {
   const res = await fetch(`${API}/${path}?${new URLSearchParams(params)}`, {
@@ -254,12 +288,7 @@ export type UploadMeta = {
   publishAt: number | null;
 };
 
-const CHUNK = 8 * 1024 * 1024; // multiple of 256 KiB, as the resumable protocol requires
-
-/**
- * Resumable upload (videos.insert, 1600 units). Sends the file in 8 MB chunks so a dropped
- * connection only re-sends the current chunk; retries each chunk a few times.
- */
+/** videos.insert (1600 units) via a resumable session. Returns the new video id. */
 export async function uploadVideo(
   token: string,
   file: Blob,
@@ -269,12 +298,7 @@ export async function uploadVideo(
 ): Promise<string> {
   const scheduled = meta.publishAt !== null && meta.publishAt > Date.now();
   const body = {
-    snippet: {
-      title: meta.title,
-      description: meta.description,
-      tags: meta.tags,
-      categoryId: meta.categoryId,
-    },
+    snippet: { title: meta.title, description: meta.description, tags: meta.tags, categoryId: meta.categoryId },
     status: {
       privacyStatus: scheduled ? "private" : meta.privacy,
       ...(scheduled ? { publishAt: new Date(meta.publishAt!).toISOString() } : {}),
@@ -284,11 +308,7 @@ export async function uploadVideo(
   };
   const type = file.type || "video/*";
   const init = await fetch(
-    `${UPLOAD_API}/videos?${new URLSearchParams({
-      uploadType: "resumable",
-      part: "snippet,status",
-      notifySubscribers: String(meta.notifySubscribers),
-    })}`,
+    `${UPLOAD_API}/videos?${new URLSearchParams({ uploadType: "resumable", part: "snippet,status", notifySubscribers: String(meta.notifySubscribers) })}`,
     {
       method: "POST",
       signal,
@@ -306,82 +326,21 @@ export async function uploadVideo(
   if (!location) throw new YouTubeError("YouTube did not return an upload address. Try again.");
   addQuota(1600);
 
-  let offset = 0;
-  let failures = 0;
-  while (true) {
-    const end = Math.min(offset + CHUNK, file.size);
-    try {
-      const res = await putChunk(location, token, file, offset, end, type, signal, (sent) =>
-        onProgress((offset + sent) / file.size),
-      );
-      if (res.status === 200 || res.status === 201) {
-        onProgress(1);
-        const json = JSON.parse(res.body);
-        return json.id as string;
-      }
-      if (res.status === 308) {
-        offset = nextOffset(res.range);
-        failures = 0;
-        continue;
-      }
-      if (res.status >= 500 || res.status === 0) throw new Error(`network ${res.status}`);
-      let reason = "";
-      let message = `Upload failed (${res.status})`;
-      try {
-        const j = JSON.parse(res.body);
-        reason = j?.error?.errors?.[0]?.reason ?? "";
-        message = j?.error?.message ?? message;
-      } catch {
-        /* ignore */
-      }
-      throw friendlyError(res.status, reason, message);
-    } catch (e) {
-      if (signal?.aborted) throw new YouTubeError("Upload cancelled.");
-      if (e instanceof YouTubeError) throw e;
-      if (++failures > 6) throw new YouTubeError("Upload kept failing because of the network. It is saved — retry from the Queue.");
-      await new Promise((r) => setTimeout(r, Math.min(30_000, 1000 * 2 ** failures)));
-      // Ask the server how much it already has, then continue from there.
-      const s = await putChunk(location, token, file, -1, -1, type, signal, () => {}).catch(() => null);
-      if (s?.status === 200 || s?.status === 201) return JSON.parse(s.body).id as string;
-      if (s?.status === 308) offset = nextOffset(s.range);
-    }
+  const text = await sendResumable(location, token, file, type, onProgress, chunkError, signal);
+  return JSON.parse(text).id as string;
+}
+
+export function chunkError(res: { status: number; body: string }) {
+  let reason = "";
+  let message = `Upload failed (${res.status})`;
+  try {
+    const j = JSON.parse(res.body);
+    reason = j?.error?.errors?.[0]?.reason ?? "";
+    message = j?.error?.message ?? message;
+  } catch {
+    /* ignore */
   }
-}
-
-function nextOffset(range: string | null) {
-  // "bytes=0-12345" → 12346; no header means nothing was stored yet.
-  const m = range?.match(/-(\d+)$/);
-  return m ? Number(m[1]) + 1 : 0;
-}
-
-/** PUT one chunk with XHR (fetch has no upload progress). start = -1 sends a status query. */
-function putChunk(
-  url: string,
-  token: string,
-  file: Blob,
-  start: number,
-  end: number,
-  type: string,
-  signal: AbortSignal | undefined,
-  onSent: (bytes: number) => void,
-): Promise<{ status: number; body: string; range: string | null }> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url);
-    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-    if (start < 0) {
-      xhr.setRequestHeader("Content-Range", `bytes */${file.size}`);
-    } else {
-      xhr.setRequestHeader("Content-Type", type);
-      xhr.setRequestHeader("Content-Range", `bytes ${start}-${end - 1}/${file.size}`);
-      xhr.upload.onprogress = (e) => onSent(e.loaded);
-    }
-    xhr.onload = () => resolve({ status: xhr.status, body: xhr.responseText, range: xhr.getResponseHeader("Range") });
-    xhr.onerror = () => reject(new Error("network"));
-    xhr.onabort = () => reject(new Error("aborted"));
-    signal?.addEventListener("abort", () => xhr.abort(), { once: true });
-    xhr.send(start < 0 ? null : file.slice(start, end));
-  });
+  return friendlyError(res.status, reason, message);
 }
 
 /** thumbnails.set (50 units). Needs a phone-verified channel; JPG/PNG under 2 MB. */

@@ -4,6 +4,10 @@ import {
   BookOpen,
   Bot,
   CalendarClock,
+  CheckCircle2,
+  ChevronUp,
+  Loader2,
+  Minus,
   ChevronDown,
   Clapperboard,
   Home,
@@ -176,20 +180,105 @@ function UserMenu() {
 }
 
 function UploadsDock() {
-  const { jobs, cancel } = useUploads();
-  const list = Object.values(jobs);
-  if (!list.length) return null;
+  const { jobs, batches, cancel, stopBatch, dismissBatch } = useUploads();
+  const [min, setMin] = useState(false);
+  const inBatch = new Set(batches.map((b) => b.currentItemId).filter(Boolean));
+  const loose = Object.values(jobs).filter((j) => !inBatch.has(j.itemId));
+  if (!batches.length && !loose.length) return null;
+
+  const active = batches.filter((b) => b.state === "running" || b.state === "waiting");
+  const totalAll = batches.reduce((n, b) => n + b.total, 0);
+  const doneAll = batches.reduce((n, b) => n + b.done + b.failed, 0);
+
+  if (min)
+    return (
+      <button
+        onClick={() => setMin(false)}
+        className="fixed right-4 bottom-20 z-40 flex items-center gap-2.5 rounded-full border border-line bg-card py-2 pr-4 pl-2.5 text-sm font-semibold shadow-2xl shadow-black/30 lg:bottom-6"
+      >
+        {active.length || loose.length ? <Loader2 className="size-4.5 animate-spin text-accent" /> : <CheckCircle2 className="size-4.5 text-ok" />}
+        <span className="tabular-nums">{totalAll ? `${doneAll} / ${totalAll}` : "Uploading"}</span>
+        <ChevronUp className="size-4 text-muted" />
+      </button>
+    );
+
   return (
-    <div className="fixed right-4 bottom-20 z-40 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-line bg-card p-4 shadow-2xl shadow-black/30 lg:bottom-6">
-      <div className="mb-3 flex items-center justify-between text-sm font-semibold">
-        <span>Uploading {list.length} video{list.length > 1 ? "s" : ""}</span>
-        <span className="text-xs font-normal text-muted">Keep this tab open</span>
+    <div className="fixed right-4 bottom-20 z-40 w-[min(23rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-line bg-card shadow-2xl shadow-black/40 lg:bottom-6">
+      <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
+        <span className="flex items-center gap-2 text-sm font-semibold">
+          {active.length || loose.length ? <Loader2 className="size-4 animate-spin text-accent" /> : <CheckCircle2 className="size-4 text-ok" />}
+          Uploads
+        </span>
+        <span className="flex items-center gap-1">
+          {(active.length > 0 || loose.length > 0) && <span className="mr-1 text-[11px] text-faint">Keep this tab open</span>}
+          <button onClick={() => setMin(true)} className="grid size-7 place-items-center rounded-lg text-muted hover:bg-card-hover hover:text-fg" title="Minimize">
+            <Minus className="size-4" />
+          </button>
+        </span>
       </div>
-      <div className="space-y-3">
-        {list.map((j) => (
-          <div key={j.itemId}>
-            <div className="mb-1.5 flex items-center justify-between gap-2 text-xs">
-              <span className="truncate">{j.title}</span>
+
+      <div className="max-h-[60vh] space-y-3 overflow-y-auto p-4">
+        {batches.map((b) => {
+          const finished = b.state === "finished" || b.state === "stopped";
+          const overall = (b.done + b.failed + (finished ? 0 : b.progress)) / b.total;
+          return (
+            <div key={b.id} className="rounded-xl border border-line bg-bg-soft p-3">
+              <div className="flex items-center gap-2.5">
+                <span className={cx("grid size-8 shrink-0 place-items-center rounded-lg", b.kind === "youtube" ? "bg-[#ff0000]/10 text-[#ff4d4d]" : "bg-accent-soft text-accent")}>
+                  {b.kind === "youtube" ? <Youtube className="size-4" /> : <Bot className="size-4" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold">{b.kind === "youtube" ? "Uploading to YouTube" : "Saving for Autopilot"}</span>
+                  <span className="block text-[11px] text-muted">
+                    {b.state === "waiting" ? "Waiting for the previous batch…" : b.state === "stopped" ? "Stopped" : finished ? "Finished" : b.kind === "youtube" ? "From this tab" : "Copying to your Google Drive"}
+                  </span>
+                </span>
+                <span className="text-lg font-extrabold tabular-nums">
+                  {b.done + b.failed}
+                  <span className="text-sm font-medium text-faint"> / {b.total}</span>
+                </span>
+              </div>
+
+              <Progress value={overall} className="mt-3 h-2" />
+
+              {!finished && b.current && (
+                <div className="mt-2.5 flex items-center justify-between gap-2 text-xs">
+                  <span className="min-w-0 truncate text-muted">
+                    <span className="text-faint">Now:</span> {b.current}
+                  </span>
+                  <span className="shrink-0 font-semibold tabular-nums">{Math.round(b.progress * 100)}%</span>
+                </div>
+              )}
+
+              <div className="mt-2.5 flex items-center justify-between gap-2 text-xs">
+                <span className="flex gap-3">
+                  <span className="text-ok">{b.done} done</span>
+                  {b.failed > 0 && <span className="text-danger">{b.failed} failed</span>}
+                </span>
+                {finished ? (
+                  <button onClick={() => dismissBatch(b.id)} className="rounded-md px-2 py-1 text-muted hover:bg-card-hover hover:text-fg">Close</button>
+                ) : (
+                  <button onClick={() => confirm("Stop this batch? The video uploading right now is cancelled and the rest won't start.") && stopBatch(b.id)} className="rounded-md px-2 py-1 text-muted hover:bg-danger/10 hover:text-danger">
+                    Stop
+                  </button>
+                )}
+              </div>
+
+              {b.errors.length > 0 && (
+                <ul className="mt-2 space-y-1 rounded-lg bg-danger/5 p-2 text-[11px] text-danger">
+                  {b.errors.slice(-3).map((e, i) => (
+                    <li key={i} className="line-clamp-2">{e}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          );
+        })}
+
+        {loose.map((j) => (
+          <div key={j.itemId} className="rounded-xl border border-line bg-bg-soft p-3">
+            <div className="mb-2 flex items-center justify-between gap-2 text-xs">
+              <span className="truncate font-medium">{j.title}</span>
               <span className="flex shrink-0 items-center gap-2 tabular-nums text-muted">
                 {j.phase === "preparing" ? "Preparing…" : j.phase === "thumbnail" ? "Thumbnail…" : `${Math.round(j.progress * 100)}%`}
                 <button onClick={() => cancel(j.itemId)} className="hover:text-danger" title="Cancel">

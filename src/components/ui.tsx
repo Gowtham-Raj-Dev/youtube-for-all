@@ -322,7 +322,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={push}>
       {children}
-      <div className="pointer-events-none fixed inset-x-4 bottom-20 z-50 flex flex-col items-center gap-2 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:items-end">
+      <div className="pointer-events-none fixed inset-x-4 top-20 z-50 flex flex-col items-center gap-2 sm:inset-x-auto sm:right-6 sm:items-end">
         {toasts.map((t) => (
           <div key={t.id} className="pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border border-line bg-card p-3.5 text-sm shadow-2xl shadow-black/30">
             {t.tone === "ok" ? <CheckCircle2 className="size-4.5 shrink-0 text-ok" /> : t.tone === "error" ? <XCircle className="size-4.5 shrink-0 text-danger" /> : <Info className="size-4.5 shrink-0 text-info" />}

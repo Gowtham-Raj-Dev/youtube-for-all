@@ -3,14 +3,14 @@ import { Link, useNavigate } from "react-router";
 import { Bot, CalendarClock, Clapperboard, ImagePlus, Plus, Rocket, Smartphone, Trash2, UploadCloud } from "lucide-react";
 import { useUser } from "../lib/auth";
 import { useSettings, type Privacy } from "../lib/settings";
-import { newItemId, saveItem, useItems, type Item, type ItemKind } from "../lib/items";
+import { newItemId, useItems, type Item, type ItemKind } from "../lib/items";
 import { useUploads } from "../lib/uploads";
 import { useYouTube } from "../lib/youtube-context";
 import { useAutopilot } from "../lib/autopilot-context";
 import { parseTags, tagsLength } from "../lib/meta";
 import { fmtBytes, fmtDateTime, fromLocalInput, MIN_LEAD_MS, nextFreeSlots, toLocalInput } from "../lib/schedule";
 import { DAILY_QUOTA, UPLOAD_COST, useQuotaUsed } from "../lib/quota";
-import { Alert, Button, Card, CardHeader, cx, Field, Input, PageHeader, Progress, Segmented, Dropdown, Textarea, Toggle, useToast } from "../components/ui";
+import { Alert, Button, Card, CardHeader, cx, Field, Input, PageHeader, Segmented, Dropdown, Textarea, Toggle, useToast } from "../components/ui";
 import { CATEGORY_OPTIONS, PRIVACY_OPTIONS } from "../components/options";
 
 type Mode = "now" | "schedule";
@@ -64,7 +64,6 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
   const [mode, setMode] = useState<Mode>("schedule");
   const [when, setWhen] = useState<When>("slot");
   const [custom, setCustom] = useState(() => toLocalInput(Date.now() + 3600_000));
-  const [transfer, setTransfer] = useState<{ i: number; total: number; progress: number } | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [starting, setStarting] = useState(false);
   const submitting = useRef(false);
@@ -101,7 +100,9 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
   const times: (number | null)[] = useMemo(() => {
     if (mode === "now") return entries.map(() => null);
     if (!bulk && when === "custom") return [fromLocalInput(custom)];
-    const s = nextFreeSlots(settings.slots, items, entries.length);
+    // Count files still being copied for Autopilot as taken, so two batches never share a slot.
+    const reserved = uploads.reservedTimes().map((t, i) => ({ id: `reserved-${i}`, status: "queued", publishAt: t }) as Item);
+    const s = nextFreeSlots(settings.slots, [...items, ...reserved], entries.length);
     return entries.map((_, i) => s[i] ?? null);
   }, [mode, bulk, when, custom, settings.slots, items, entries]);
 
@@ -211,65 +212,41 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
       return toast("error", (e as Error).message);
     }
 
+    // The work runs in the app shell (see UploadsProvider), so it keeps going on other pages.
+    // Progress shows in the panel at the bottom-right: "3 / 10".
     if (!direct) {
       // Autopilot: copy each file to the user's Drive and book it. Google uploads it on time.
-      setTransfer({ i: 0, total: list.length, progress: 0 });
-      let done = 0;
-      try {
-        for (let i = 0; i < list.length; i++) {
-          setTransfer({ i, total: list.length, progress: 0 });
-          await autopilot.queue(baseFor(list[i], publishTimes[i]), list[i].file, t, (p) => setTransfer({ i, total: list.length, progress: p }));
-          done++;
-          setEntries((e) => e.filter((x) => x.key !== list[i].key));
-        }
-        toast("ok", `${done} video${done > 1 ? "s" : ""} added to Autopilot. ${done > 1 ? "They go" : "It goes"} live on schedule — your PC can be off.`);
-        reset();
-      } catch (e) {
-        toast("error", `${done ? `${done} added. ` : ""}Stopped at “${list[done]?.title}”: ${(e as Error).message}`);
-      } finally {
-        setTransfer(null);
-      }
-      return;
-    }
-
-    // Direct browser upload (Now, or Schedule without Autopilot).
-    const now = Date.now();
-    const created: { item: Item; file: File }[] = [];
-    for (let i = 0; i < list.length; i++) {
-      const item: Item = {
-        ...baseFor(list[i], publishTimes[i]),
-        id: newItemId(),
-        status: "uploading",
-        youtubeId: null,
-        file: null,
-        thumb: null,
-        error: null,
-        createdAt: now + i,
-        updatedAt: now,
-        uploadedAt: null,
-      };
-      // Don't wait for the server: Firestore applies the write locally at once and syncs later.
-      // Waiting here is what let repeated clicks pile up duplicates on a slow network.
-      saveItem(user.uid, item).catch(() => {});
-      created.push({ item, file: list[i].file });
+      uploads.startAutopilotBatch(list.map((e, i) => ({ base: baseFor(e, publishTimes[i]), video: e.file, thumb: t })));
+    } else {
+      // Direct browser upload (Now, or Schedule without Autopilot).
+      const now = Date.now();
+      uploads.startYouTubeBatch(
+        list.map((e, i) => ({
+          item: {
+            ...baseFor(e, publishTimes[i]),
+            id: newItemId(),
+            status: "queued",
+            youtubeId: null,
+            file: null,
+            thumb: null,
+            error: null,
+            createdAt: now + i,
+            updatedAt: now,
+            uploadedAt: null,
+          } satisfies Item,
+          video: e.file,
+          thumb: t,
+        })),
+      );
     }
     reset();
-    // The form is cleared and the uploads run in the dock below, so the button can be released.
-    submitting.current = false;
-    setStarting(false);
-    toast("info", `Uploading ${created.length} video${created.length > 1 ? "s" : ""} — keep this tab open until it finishes.`);
-    for (const { item, file } of created) {
-      try {
-        await uploads.run(item, { video: file, thumb: t });
-        toast("ok", item.publishAt ? `“${item.title}” is scheduled for ${fmtDateTime(item.publishAt)}.` : `“${item.title}” is uploaded.`);
-      } catch (e) {
-        toast("error", `“${item.title}”: ${(e as Error).message}`);
-        if (/quota|session expired/i.test((e as Error).message)) break;
-      }
-    }
+    toast(
+      "info",
+      `${list.length} video${list.length > 1 ? "s" : ""} started. You can switch pages — just keep this tab open until the panel says done.`,
+    );
   };
 
-  const busy = transfer !== null || starting;
+  const busy = starting;
 
   return (
     <>
@@ -499,19 +476,6 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
                 </div>
               )}
 
-              {transfer && (
-                <div>
-                  <div className="mb-1.5 flex justify-between text-xs text-muted">
-                    <span>
-                      Saving to Drive {transfer.total > 1 ? `· ${transfer.i + 1} of ${transfer.total}` : ""}
-                    </span>
-                    <span className="tabular-nums">{Math.round(transfer.progress * 100)}%</span>
-                  </div>
-                  <Progress value={(transfer.i + transfer.progress) / transfer.total} />
-                  <p className="mt-1.5 text-[11px] text-faint">Keep this tab open until saving finishes. After that you can close everything.</p>
-                </div>
-              )}
-
               {problems.length > 0 && entries.length > 0 && (
                 <ul className="space-y-1 text-xs text-danger">
                   {problems.map((p) => (
@@ -529,11 +493,9 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
                 onClick={submit}
                 icon={mode === "now" ? <Rocket className="size-4.5" /> : direct ? <CalendarClock className="size-4.5" /> : <Bot className="size-4.5" />}
               >
-                {starting && !transfer
+                {starting
                   ? "Starting…"
-                  : transfer
-                    ? `Saving ${transfer.i + 1} of ${transfer.total}…`
-                    : mode === "now"
+                  : mode === "now"
                   ? `Upload now${bulk ? ` (${entries.length})` : ""}`
                   : direct
                     ? `Upload & schedule${bulk ? ` (${entries.length})` : ""}`

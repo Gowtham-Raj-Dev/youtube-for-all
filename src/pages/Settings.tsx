@@ -13,6 +13,8 @@ import { siteOrigin } from "../lib/snippets";
 import { fmtSlot, sortSlots, timeZoneName } from "../lib/schedule";
 import { Alert, Badge, Button, Card, CardHeader, cx, Field, Input, PageHeader, Select, Textarea, Toggle, useToast } from "../components/ui";
 import { CopyBox } from "../components/CopyBox";
+import { AUTHOR_URL, CODELOVE, PLATFORMS } from "../components/Site";
+import { ArrowUpRight, Heart } from "lucide-react";
 
 export default function Settings() {
   const loc = useLocation();
@@ -34,6 +36,7 @@ export default function Settings() {
         <ScheduleSection />
         <DefaultsSection />
         <DataSection />
+        <CreditsSection />
       </div>
     </>
   );
@@ -471,6 +474,57 @@ function DefaultsSection() {
         <div className="flex justify-end">
           <Button variant="primary" disabled={!dirty} onClick={() => save({ defaults: d }).then(() => toast("ok", "Defaults saved."))}>Save defaults</Button>
         </div>
+      </div>
+    </Card>
+  );
+}
+
+// ---------- Credits ----------
+
+function CreditsSection() {
+  return (
+    <Card>
+      <span id="credits" className="block scroll-mt-24" />
+      <CardHeader icon={<Heart className="size-5" />} title="Credits" subtitle="Who makes UTubeFlow." />
+      <div className="space-y-5 p-5">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <a href={AUTHOR_URL} target="_blank" rel="noreferrer" className="group flex items-center gap-4 rounded-xl border border-line bg-bg-soft p-4 transition hover:border-accent/40">
+            <span className="grad-bg grid size-12 shrink-0 place-items-center rounded-full text-lg font-extrabold">G</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs text-muted">Made with ♥ by</span>
+              <span className="block text-lg font-bold">Gowtham</span>
+              <span className="block text-xs text-faint">gowtham.codelove.in</span>
+            </span>
+            <ArrowUpRight className="size-4 text-faint transition group-hover:text-accent" />
+          </a>
+          <a href={CODELOVE} target="_blank" rel="noreferrer" className="group flex items-center gap-4 rounded-xl border border-line bg-bg-soft p-4 transition hover:border-accent/40">
+            <span className="min-w-0 flex-1">
+              <span className="mb-2 block text-xs text-muted">A product of</span>
+              <span className="block h-9">
+                <img src="/brand/codelove-footer-on-dark.png" alt="codelove.in" className="only-dark h-full w-auto" />
+                <img src="/brand/codelove-footer-on-light.png" alt="codelove.in" className="only-light h-full w-auto" />
+              </span>
+            </span>
+            <ArrowUpRight className="size-4 text-faint transition group-hover:text-accent" />
+          </a>
+        </div>
+        <div>
+          <div className="mb-2 text-xs font-semibold tracking-wider text-faint uppercase">More free platforms from CodeLove</div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {PLATFORMS.map(({ name, text, href, icon: Icon }) => (
+              <a key={name} href={href} target="_blank" rel="noreferrer" className="group flex items-center gap-3 rounded-xl border border-line p-3 transition hover:border-accent/40">
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent">
+                  <Icon className="size-4.5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">{name}</span>
+                  <span className="block truncate text-xs text-muted">{text}</span>
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+        <p className="text-xs text-faint">UTubeFlow is free and not affiliated with YouTube or Google.</p>
       </div>
     </Card>
   );

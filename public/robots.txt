@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# App pages (dashboard, queue, settings…) need sign-in and carry a noindex tag instead of a Disallow,
+# so Google can see the tag and keep them out of results.
+
+Sitemap: https://utubeflow.codelove.in/sitemap.xml

@@ -6,6 +6,7 @@ import { UploadsProvider } from "./lib/uploads";
 import { AutopilotProvider } from "./lib/autopilot-context";
 import { Spinner, ToastProvider } from "./components/ui";
 import { firebaseConfigured } from "./config";
+import { useSeo } from "./lib/seo";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
@@ -60,12 +61,18 @@ function NotConfigured() {
   );
 }
 
+function Seo() {
+  useSeo();
+  return null;
+}
+
 export default function App() {
   if (!firebaseConfigured) return <NotConfigured />;
   return (
     <AuthProvider>
       <ToastProvider>
         <BrowserRouter basename={BASENAME}>
+          <Seo />
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />

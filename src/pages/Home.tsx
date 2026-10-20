@@ -218,9 +218,12 @@ const STEPS = [
   { icon: CloudUpload, title: "Drop your videos", text: "Pick your Shorts or videos, choose Schedule, click Add. Done — they go live on time." },
 ];
 
+// Keep in sync with the FAQPage JSON-LD in index.html.
 const FAQ: [string, string][] = [
-  ["Is it really free?", "Yes. No plans, no payments. It runs on your own free Google account: the YouTube API quota, 15 GB of Google Drive and Apps Script are free from Google."],
+  ["Is there a free YouTube automation tool?", "Yes. UTubeFlow is a 100% free YouTube automation tool by CodeLove. It bulk uploads and schedules YouTube videos and Shorts, and Autopilot publishes them on time — no plans, no payments, no credit card."],
+  ["Is UTubeFlow really free?", "Yes. No plans, no payments. It runs on your own free Google account: the YouTube API quota, 15 GB of Google Drive and Apps Script are free from Google."],
   ["Does my computer need to stay on?", "No. Videos wait in your Google Drive, and a script in your own Google account uploads them on time. Keep the tab open only while files are being copied to Drive."],
+  ["Can I schedule YouTube Shorts for free?", "Yes. UTubeFlow checks the shape and length of each Short, adds #Shorts and schedules it into your daily time slots for free."],
   ["How many videos can I schedule?", "As many as fit in your Drive. YouTube's free quota allows about 6 uploads a day, so 100 videos at 3 a day go out over about a month — automatically."],
   ["Is my channel safe?", "You approve access yourself with Google. UTubeFlow can only see the Drive files it creates, and never stores your videos or passwords. You can remove access any time."],
   ["Why my own Google Cloud project?", "Each project gets its own free daily YouTube quota. With your own, you never share limits with anyone and only you control your channel."],
@@ -235,7 +238,8 @@ function FaqItem({ q, a }: { q: string; a: string }) {
         {q}
         <ChevronDown className={cx("size-5 shrink-0 text-muted transition", open && "rotate-180 text-accent")} />
       </button>
-      {open && <p className="px-5 pb-5 text-sm leading-relaxed text-muted">{a}</p>}
+      {/* Always in the DOM (hidden when closed) so search engines read every answer. */}
+      <p hidden={!open} className="px-5 pb-5 text-sm leading-relaxed text-muted">{a}</p>
     </div>
   );
 }
@@ -265,12 +269,13 @@ export default function Home() {
               <ArrowRight className="size-3.5 transition group-hover:translate-x-0.5" />
             </Link>
             <h1 className="mt-6 text-[2.75rem] leading-[1.02] font-extrabold tracking-tight sm:text-6xl lg:text-7xl">
+              <span className="mb-4 block text-sm font-bold tracking-wider text-accent uppercase sm:text-base">Free YouTube Automation</span>
               Upload once.
               <br />
               <span className="grad-text-anim">Post every day.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
-              UTubeFlow schedules your YouTube videos and Shorts in bulk and publishes them on time — automatically, from your own Google account. Free for every creator.
+              UTubeFlow is a free YouTube automation tool: it schedules your YouTube videos and Shorts in bulk and publishes them on time — automatically, from your own Google account. Free for every creator.
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <PrimaryCta />

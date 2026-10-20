@@ -1,0 +1,24 @@
+{
+  "site": "https://utubeflow.codelove.in",
+  "keywords": "free youtube automation, youtube automation free, free youtube automation tool, youtube automation, utubeflow, youtube scheduler free, schedule youtube videos free, youtube shorts scheduler, bulk upload youtube videos, auto upload youtube videos, youtube auto upload, free automation platform, youtube automation software free, codelove",
+  "public": {
+    "/": {
+      "title": "Free YouTube Automation Tool — Schedule Videos & Shorts | UTubeFlow",
+      "description": "UTubeFlow is a 100% free YouTube automation platform. Bulk upload and auto-schedule YouTube videos and Shorts — Autopilot posts on time even with your PC off.",
+      "h1": "Free YouTube Automation — Upload once. Post every day.",
+      "body": "UTubeFlow by CodeLove is a free YouTube automation tool for every creator. Bulk upload 100+ YouTube videos and Shorts, pick daily time slots, and Autopilot publishes them on schedule from your own Google account — even when your computer is off. No plans, no payments, no credit card: free YouTube automation using your own free YouTube API quota and Google Drive."
+    },
+    "/login": {
+      "title": "Sign in — Start Free YouTube Automation | UTubeFlow",
+      "description": "Sign in with Google and start free YouTube automation in minutes. Bulk upload and schedule YouTube videos and Shorts with UTubeFlow — free forever.",
+      "h1": "Sign in to UTubeFlow — free YouTube automation",
+      "body": "Sign in with your Google account to start automating your YouTube channel for free. Bulk upload, schedule Shorts and long videos, and let Autopilot post them on time."
+    },
+    "/privacy": {
+      "title": "Privacy Policy | UTubeFlow — Free YouTube Automation",
+      "description": "How UTubeFlow, the free YouTube automation tool by CodeLove, handles your data: no video files, tokens or passwords stored. Delete everything any time.",
+      "h1": "Privacy Policy — UTubeFlow",
+      "body": "UTubeFlow is a free YouTube automation tool from CodeLove (codelove.in). We never store your video files, Google access tokens, passwords or client secrets. Videos wait in your own Google Drive and upload from your own Google account."
+    }
+  }
+}

@@ -6,7 +6,7 @@ export default function Privacy() {
     <div className="flex min-h-dvh flex-col pt-16">
       <SiteHeader />
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-14 sm:px-6">
-        <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Privacy</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Privacy Policy</h1>
         <p className="mt-2 text-sm text-faint">Last updated: October 2026</p>
         <div className="mt-8 space-y-5 leading-relaxed text-muted [&_b]:text-fg">
           <p>{APP_NAME} is a free tool from CodeLove (codelove.in). Here is exactly what happens with your data.</p>

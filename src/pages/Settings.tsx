@@ -134,6 +134,7 @@ function ConnectionCheck() {
 // ---------- YouTube ----------
 
 function YouTubeSection() {
+  const user = useUser();
   const { settings, save } = useSettings();
   const yt = useYouTube();
   const toast = useToast();
@@ -162,16 +163,35 @@ function YouTubeSection() {
       <span id="youtube" className="block scroll-mt-24" />
       <CardHeader icon={<Youtube className="size-5" />} title="YouTube" subtitle="Your own Google Cloud OAuth Client ID — your quota, your control." />
       <div className="space-y-5 p-5">
+        <Alert
+          tone="info"
+          title="First time? Follow the 6 steps in the guide"
+          action={<Link to="/guide#youtube"><Button size="sm" variant="primary" icon={<BookOpen className="size-3.5" />}>Open guide</Button></Link>}
+        >
+          Every click is listed, with a direct link. Quick links:
+        </Alert>
         <div className="flex flex-wrap gap-2">
           <ExtButton href="https://console.cloud.google.com/projectcreate">1 · Create project</ExtButton>
           <ExtButton href={ENABLE_APIS_URL}>2 · Enable APIs</ExtButton>
           <ExtButton href="https://console.cloud.google.com/auth/overview">3 · Consent screen</ExtButton>
           <ExtButton href="https://console.cloud.google.com/auth/audience">4 · Add test user</ExtButton>
           <ExtButton href="https://console.cloud.google.com/auth/clients/create">5 · Create Client ID</ExtButton>
-          <Link to="/guide#youtube"><Button size="sm" variant="ghost" icon={<BookOpen className="size-3.5" />}>Step-by-step guide</Button></Link>
         </div>
 
-        <CopyBox label="Authorized JavaScript origin (paste this when creating the Client ID)" value={siteOrigin()} />
+        <div className="rounded-xl border border-danger/30 bg-danger/5 p-4">
+          <div className="text-sm font-semibold text-danger">Step 4 is a must — add this Gmail as a Test user</div>
+          <p className="mt-1 text-xs text-muted">
+            Otherwise Google shows <span className="font-mono">“Access blocked: … has not completed the Google verification process (Error 403)”</span>. Google Cloud → Audience → Test users → Add users → paste → Save.
+          </p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="min-w-0 flex-1">
+              <CopyBox value={user.email ?? ""} />
+            </div>
+            <ExtButton href="https://console.cloud.google.com/auth/audience">Open Test users</ExtButton>
+          </div>
+        </div>
+
+        <CopyBox label="Step 5 · Authorized JavaScript origin (paste this when creating the Client ID)" value={siteOrigin()} />
 
         <Field
           label="OAuth Client ID"

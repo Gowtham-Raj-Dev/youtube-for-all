@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Bot, CalendarClock, Clapperboard, ImagePlus, Plus, Rocket, Smartphone, Trash2, UploadCloud } from "lucide-react";
 import { useUser } from "../lib/auth";
-import { useSettings, YT_CATEGORIES, type Privacy } from "../lib/settings";
+import { useSettings, type Privacy } from "../lib/settings";
 import { newItemId, saveItem, useItems, type Item, type ItemKind } from "../lib/items";
 import { useUploads } from "../lib/uploads";
 import { useYouTube } from "../lib/youtube-context";
@@ -10,7 +10,8 @@ import { useAutopilot } from "../lib/autopilot-context";
 import { parseTags, tagsLength } from "../lib/meta";
 import { fmtBytes, fmtDateTime, fromLocalInput, MIN_LEAD_MS, nextFreeSlots, toLocalInput } from "../lib/schedule";
 import { DAILY_QUOTA, UPLOAD_COST, useQuotaUsed } from "../lib/quota";
-import { Alert, Button, Card, CardHeader, cx, Field, Input, PageHeader, Progress, Segmented, Select, Textarea, Toggle, useToast } from "../components/ui";
+import { Alert, Button, Card, CardHeader, cx, Field, Input, PageHeader, Progress, Segmented, Dropdown, Textarea, Toggle, useToast } from "../components/ui";
+import { CATEGORY_OPTIONS, PRIVACY_OPTIONS } from "../components/options";
 
 type Mode = "now" | "schedule";
 type When = "slot" | "custom";
@@ -65,6 +66,8 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
   const [custom, setCustom] = useState(() => toLocalInput(Date.now() + 3600_000));
   const [transfer, setTransfer] = useState<{ i: number; total: number; progress: number } | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const submitting = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   // Defaults arrive asynchronously from Firestore; apply them while the form is untouched.
@@ -182,7 +185,20 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
   });
 
   const submit = async () => {
-    if (problems.length) return;
+    // One submit at a time: a second click (e.g. while the network is slow) must not start another upload.
+    if (problems.length || submitting.current) return;
+    if (!navigator.onLine) return toast("error", "You're offline. Connect to the internet and try again.");
+    submitting.current = true;
+    setStarting(true);
+    try {
+      await doSubmit();
+    } finally {
+      submitting.current = false;
+      setStarting(false);
+    }
+  };
+
+  const doSubmit = async () => {
     const list = entries;
     const t = single ? thumb : null;
     const publishTimes = times;
@@ -232,10 +248,15 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
         updatedAt: now,
         uploadedAt: null,
       };
-      await saveItem(user.uid, item);
+      // Don't wait for the server: Firestore applies the write locally at once and syncs later.
+      // Waiting here is what let repeated clicks pile up duplicates on a slow network.
+      saveItem(user.uid, item).catch(() => {});
       created.push({ item, file: list[i].file });
     }
     reset();
+    // The form is cleared and the uploads run in the dock below, so the button can be released.
+    submitting.current = false;
+    setStarting(false);
     toast("info", `Uploading ${created.length} video${created.length > 1 ? "s" : ""} — keep this tab open until it finishes.`);
     for (const { item, file } of created) {
       try {
@@ -248,7 +269,7 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
     }
   };
 
-  const busy = transfer !== null;
+  const busy = transfer !== null || starting;
 
   return (
     <>
@@ -388,11 +409,7 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
               </Field>
               <div className="grid gap-5 sm:grid-cols-2">
                 <Field label="Category">
-                  <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-                    {YT_CATEGORIES.map(([id, name]) => (
-                      <option key={id} value={id}>{name}</option>
-                    ))}
-                  </Select>
+                  <Dropdown value={categoryId} onChange={setCategoryId} options={CATEGORY_OPTIONS} />
                 </Field>
                 {!isShort && !bulk && (
                   <Field label="Thumbnail (optional)" hint="JPG/PNG, 1280×720, under 2 MB">
@@ -453,11 +470,7 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
 
               {mode === "now" ? (
                 <Field label="Visibility">
-                  <Select value={privacy} onChange={(e) => setPrivacy(e.target.value as Privacy)}>
-                    <option value="public">Public</option>
-                    <option value="unlisted">Unlisted</option>
-                    <option value="private">Private</option>
-                  </Select>
+                  <Dropdown<Privacy> value={privacy} onChange={setPrivacy} options={PRIVACY_OPTIONS} />
                 </Field>
               ) : bulk ? (
                 <p className="text-sm">
@@ -516,7 +529,11 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
                 onClick={submit}
                 icon={mode === "now" ? <Rocket className="size-4.5" /> : direct ? <CalendarClock className="size-4.5" /> : <Bot className="size-4.5" />}
               >
-                {mode === "now"
+                {starting && !transfer
+                  ? "Starting…"
+                  : transfer
+                    ? `Saving ${transfer.i + 1} of ${transfer.total}…`
+                    : mode === "now"
                   ? `Upload now${bulk ? ` (${entries.length})` : ""}`
                   : direct
                     ? `Upload & schedule${bulk ? ` (${entries.length})` : ""}`

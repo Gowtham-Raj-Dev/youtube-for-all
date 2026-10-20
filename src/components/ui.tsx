@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
-import { AlertTriangle, CheckCircle2, Info, Loader2, X, XCircle } from "lucide-react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { AlertTriangle, Check, CheckCircle2, ChevronDown, Info, Loader2, X, XCircle } from "lucide-react";
 import type { ItemStatus } from "../lib/items";
 import { STATUS_LABEL } from "../lib/items";
 
@@ -75,14 +75,16 @@ export function PageHeader({ title, subtitle, action }: { title: string; subtitl
 
 export function Field({ label, hint, children, counter }: { label: string; hint?: ReactNode; children: ReactNode; counter?: string }) {
   return (
-    <label className="block">
+    // A div, not a <label>: a label forwards clicks to the first button inside, which would
+    // re-toggle a Dropdown when one of its options is clicked.
+    <div className="block">
       <div className="mb-1.5 flex items-baseline justify-between gap-2">
         <span className="text-sm font-medium">{label}</span>
         {counter && <span className="text-xs tabular-nums text-faint">{counter}</span>}
       </div>
       {children}
       {hint && <p className="mt-1.5 text-xs text-muted">{hint}</p>}
-    </label>
+    </div>
   );
 }
 
@@ -97,8 +99,119 @@ export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
   return <textarea {...props} className={cx(inputCls, "min-h-28 resize-y leading-relaxed", props.className)} />;
 }
 
-export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className={cx(inputCls, "cursor-pointer pr-8", props.className)} />;
+export type DropdownOption<T extends string> = { value: T; label: string; hint?: string; icon?: ReactNode };
+
+/** Styled replacement for <select>: keyboard friendly, closes on outside click, flips up near the bottom. */
+export function Dropdown<T extends string>({
+  value,
+  onChange,
+  options,
+  disabled,
+  className,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: DropdownOption<T>[];
+  disabled?: boolean;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [up, setUp] = useState(false);
+  const [active, setActive] = useState(0);
+  const root = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLUListElement>(null);
+  const selected = options.find((o) => o.value === value) ?? options[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => root.current && !root.current.contains(e.target as Node) && setOpen(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  useEffect(() => {
+    if (open) list.current?.querySelector<HTMLElement>(`[data-i="${active}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [open, active]);
+
+  const toggle = () => {
+    if (disabled) return;
+    if (!open && root.current) {
+      const r = root.current.getBoundingClientRect();
+      setUp(window.innerHeight - r.bottom < 300 && r.top > window.innerHeight - r.bottom);
+      setActive(Math.max(0, options.findIndex((o) => o.value === value)));
+    }
+    setOpen(!open);
+  };
+
+  const pick = (o: DropdownOption<T>) => {
+    onChange(o.value);
+    setOpen(false);
+  };
+
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") return setOpen(false);
+    if (!open && (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      return toggle();
+    }
+    if (!open) return;
+    if (e.key === "ArrowDown") (e.preventDefault(), setActive((a) => Math.min(options.length - 1, a + 1)));
+    else if (e.key === "ArrowUp") (e.preventDefault(), setActive((a) => Math.max(0, a - 1)));
+    else if (e.key === "Enter" || e.key === " ") (e.preventDefault(), pick(options[active]));
+  };
+
+  return (
+    <div ref={root} className={cx("relative", className)} onKeyDown={onKey}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={toggle}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={cx(
+          "flex w-full items-center gap-2.5 rounded-xl border bg-bg-soft px-3.5 py-2.5 text-left text-sm transition outline-none",
+          open ? "border-accent ring-2 ring-accent/20" : "border-line hover:border-faint/50",
+          "focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/20 disabled:opacity-50",
+        )}
+      >
+        {selected?.icon && <span className="shrink-0 text-muted">{selected.icon}</span>}
+        <span className="min-w-0 flex-1 truncate font-medium">{selected?.label}</span>
+        <ChevronDown className={cx("size-4 shrink-0 text-muted transition", open && "rotate-180")} />
+      </button>
+      {open && (
+        <ul
+          ref={list}
+          role="listbox"
+          className={cx(
+            "absolute inset-x-0 z-50 max-h-72 overflow-y-auto rounded-xl border border-line bg-card p-1.5 shadow-2xl shadow-black/40",
+            up ? "bottom-full mb-2" : "top-full mt-2",
+          )}
+        >
+          {options.map((o, i) => {
+            const isSel = o.value === value;
+            return (
+              <li
+                key={o.value}
+                data-i={i}
+                role="option"
+                aria-selected={isSel}
+                onMouseEnter={() => setActive(i)}
+                onClick={() => pick(o)}
+                className={cx("flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition", i === active ? "bg-card-hover" : "", isSel && "text-accent")}
+              >
+                {o.icon && <span className={cx("shrink-0", isSel ? "text-accent" : "text-muted")}>{o.icon}</span>}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{o.label}</span>
+                  {o.hint && <span className="block truncate text-xs text-muted">{o.hint}</span>}
+                </span>
+                {isSel && <Check className="size-4 shrink-0" />}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 export function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {

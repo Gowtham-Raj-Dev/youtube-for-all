@@ -82,6 +82,7 @@ export default function Queue() {
   const toast = useToast();
   const [editing, setEditing] = useState<Item | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [starting, setStarting] = useState<Set<string>>(new Set());
 
   const waiting = items
     .filter((i) => ["queued", "failed", "uploading"].includes(effectiveStatus(i, jobs)))
@@ -91,11 +92,21 @@ export default function Queue() {
   const lastRun = statusTime(autopilot.status?.lastRun);
 
   const uploadOne = async (item: Item) => {
+    // Ignore repeat clicks while this one is still getting ready.
+    if (starting.has(item.id)) return;
+    if (!navigator.onLine) return toast("error", "You're offline. Connect to the internet and try again.");
+    setStarting((s) => new Set(s).add(item.id));
     try {
       await yt.ensureToken();
       if (item.file?.storage === "drive") await yt.ensureDriveToken();
     } catch (e) {
       return toast("error", (e as Error).message);
+    } finally {
+      setStarting((s) => {
+        const n = new Set(s);
+        n.delete(item.id);
+        return n;
+      });
     }
     run(item)
       .then(() => toast("ok", `“${item.title}” ${item.publishAt && item.publishAt > Date.now() ? `scheduled for ${fmtDateTime(item.publishAt)}` : "uploaded"}.`))
@@ -214,6 +225,7 @@ export default function Queue() {
                       variant={status === "failed" ? "primary" : "secondary"}
                       icon={<Play className="size-3.5" />}
                       disabled={!!job || missing || (status === "uploading" && onDrive) || !settings.youtubeClientId}
+                      loading={starting.has(item.id)}
                       onClick={() => uploadOne(item)}
                       title="Upload from this browser right now instead of waiting for Autopilot"
                     >

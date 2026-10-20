@@ -4,14 +4,15 @@ import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
 import { AlertTriangle, BookOpen, Bot, CalendarClock, CheckCircle2, CircleDashed, Database, Pause, Play, Plus, RefreshCw, ShieldCheck, SlidersHorizontal, Trash2, Wrench, X, XCircle, Youtube } from "lucide-react";
 import { db } from "../lib/firebase";
 import { signOut, useUser } from "../lib/auth";
-import { useSettings, YT_CATEGORIES, type Privacy, type Settings as S } from "../lib/settings";
+import { useSettings, type Privacy, type Settings as S } from "../lib/settings";
 import { useYouTube } from "../lib/youtube-context";
 import { useAutopilot } from "../lib/autopilot-context";
 import { getMyChannel, isValidClientId } from "../lib/youtube";
 import { checkAutopilot, deployScript, ENABLE_APIS_URL, isReady, openWebApp, SCRIPT_SETTINGS_URL, SCRIPT_VERSION, setupAutopilot, type Check } from "../lib/autopilot";
 import { siteOrigin } from "../lib/snippets";
 import { fmtSlot, sortSlots, timeZoneName } from "../lib/schedule";
-import { Alert, Badge, Button, Card, CardHeader, Code, cx, Field, Input, PageHeader, Progress, Select, Textarea, Toggle, useToast } from "../components/ui";
+import { Alert, Badge, Button, Card, CardHeader, Code, cx, Field, Input, PageHeader, Progress, Dropdown, Textarea, Toggle, useToast } from "../components/ui";
+import { CATEGORY_OPTIONS, PRIVACY_OPTIONS } from "../components/options";
 import { CopyBox } from "../components/CopyBox";
 import { Clicks, OpenLink, StepCard, useSetupTicks } from "../components/Steps";
 import { CODELOVE, PLATFORMS } from "../components/Site";
@@ -550,18 +551,10 @@ function DefaultsSection() {
       <div className="space-y-5 p-5">
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="Visibility for “Publish now”">
-            <Select value={d.privacy} onChange={(e) => set("privacy", e.target.value as Privacy)}>
-              <option value="public">Public</option>
-              <option value="unlisted">Unlisted</option>
-              <option value="private">Private</option>
-            </Select>
+            <Dropdown<Privacy> value={d.privacy} onChange={(v) => set("privacy", v)} options={PRIVACY_OPTIONS} />
           </Field>
           <Field label="Category">
-            <Select value={d.categoryId} onChange={(e) => set("categoryId", e.target.value)}>
-              {YT_CATEGORIES.map(([id, name]) => (
-                <option key={id} value={id}>{name}</option>
-              ))}
-            </Select>
+            <Dropdown value={d.categoryId} onChange={(v) => set("categoryId", v)} options={CATEGORY_OPTIONS} />
           </Field>
         </div>
         <Field label="Default tags" hint="Comma separated.">

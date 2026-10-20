@@ -25,15 +25,10 @@ export function CodeLoveLogo({ className }: { className?: string }) {
   );
 }
 
-export const AUTHOR_URL = "https://gowtham.codelove.in";
-
 export function MadeBy({ className }: { className?: string }) {
   return (
     <span className={cx("inline-flex items-center gap-1", className)}>
-      Made with <Heart className="size-3.5 fill-accent text-accent" /> by
-      <a href={AUTHOR_URL} target="_blank" rel="noreferrer" className="font-semibold text-fg underline-offset-2 hover:text-accent hover:underline">
-        Gowtham
-      </a>
+      Made with <Heart className="size-3.5 fill-accent text-accent" /> by <b className="font-semibold text-fg">Gowtham</b>
     </span>
   );
 }

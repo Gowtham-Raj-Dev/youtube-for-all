@@ -13,7 +13,7 @@ import { siteOrigin } from "../lib/snippets";
 import { fmtSlot, sortSlots, timeZoneName } from "../lib/schedule";
 import { Alert, Badge, Button, Card, CardHeader, cx, Field, Input, PageHeader, Select, Textarea, Toggle, useToast } from "../components/ui";
 import { CopyBox } from "../components/CopyBox";
-import { AUTHOR_URL, CODELOVE, PLATFORMS } from "../components/Site";
+import { CODELOVE, PLATFORMS } from "../components/Site";
 import { ArrowUpRight, Heart } from "lucide-react";
 
 export default function Settings() {
@@ -488,15 +488,13 @@ function CreditsSection() {
       <CardHeader icon={<Heart className="size-5" />} title="Credits" subtitle="Who makes UTubeFlow." />
       <div className="space-y-5 p-5">
         <div className="grid gap-3 sm:grid-cols-2">
-          <a href={AUTHOR_URL} target="_blank" rel="noreferrer" className="group flex items-center gap-4 rounded-xl border border-line bg-bg-soft p-4 transition hover:border-accent/40">
+          <div className="flex items-center gap-4 rounded-xl border border-line bg-bg-soft p-4">
             <span className="grad-bg grid size-12 shrink-0 place-items-center rounded-full text-lg font-extrabold">G</span>
             <span className="min-w-0 flex-1">
               <span className="block text-xs text-muted">Made with ♥ by</span>
               <span className="block text-lg font-bold">Gowtham</span>
-              <span className="block text-xs text-faint">gowtham.codelove.in</span>
             </span>
-            <ArrowUpRight className="size-4 text-faint transition group-hover:text-accent" />
-          </a>
+          </div>
           <a href={CODELOVE} target="_blank" rel="noreferrer" className="group flex items-center gap-4 rounded-xl border border-line bg-bg-soft p-4 transition hover:border-accent/40">
             <span className="min-w-0 flex-1">
               <span className="mb-2 block text-xs text-muted">A product of</span>

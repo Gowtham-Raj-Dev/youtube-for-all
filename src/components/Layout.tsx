@@ -223,7 +223,7 @@ function UploadsDock() {
         </span>
       </div>
 
-      <div className="max-h-[60vh] space-y-3 overflow-y-auto p-4">
+      <div className="thin-scroll max-h-[60vh] space-y-3 overflow-y-auto p-4">
         {batches.map((b) => {
           const finished = b.state === "finished" || b.state === "stopped";
           const overall = (b.done + b.failed + (finished ? 0 : b.progress)) / b.total;

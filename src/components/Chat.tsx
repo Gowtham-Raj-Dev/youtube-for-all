@@ -240,20 +240,26 @@ function Lightbox({ file, onClose }: { file: Attachment; onClose: () => void }) 
   }, [onClose]);
   useLockPageScroll(true);
   return createPortal(
-    <div className="animate-fade-in fixed inset-0 z-[100] flex flex-col bg-black/90 backdrop-blur-sm" onClick={onClose} role="dialog" aria-modal="true" aria-label={file.name}>
-      <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-3 text-white">
-        <span className="min-w-0 truncate text-sm font-medium opacity-80">{file.name}</span>
-        <div className="flex shrink-0 gap-2">
-          <a href={file.data} download={file.name} onClick={(e) => e.stopPropagation()} className="grid size-10 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20" title="Download">
-            <Download className="size-5" />
-          </a>
-          <button onClick={onClose} className="grid size-10 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20" title="Close (Esc)">
-            <X className="size-5" />
-          </button>
+    <div className="animate-fade-in fixed inset-0 z-[100] grid place-items-center bg-black/75 p-4 backdrop-blur-sm sm:p-8 lg:p-12" onClick={onClose} role="dialog" aria-modal="true" aria-label={file.name}>
+      <div className="flex max-h-full w-fit max-w-full flex-col overflow-hidden rounded-2xl border border-line bg-bg-soft shadow-2xl shadow-black/60" onClick={(e) => e.stopPropagation()}>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line py-2 pr-2 pl-4">
+          <span className="min-w-0 truncate text-sm font-medium text-muted">{file.name}</span>
+          <div className="flex shrink-0 gap-1">
+            <a href={file.data} download={file.name} className="grid size-9 place-items-center rounded-lg text-muted transition hover:bg-card-hover hover:text-fg" title="Download">
+              <Download className="size-4.5" />
+            </a>
+            <button onClick={onClose} className="grid size-9 place-items-center rounded-lg text-muted transition hover:bg-card-hover hover:text-fg" title="Close (Esc)">
+              <X className="size-4.5" />
+            </button>
+          </div>
         </div>
-      </div>
-      <div className="grid min-h-0 flex-1 place-items-center px-4 pb-4">
-        <img src={file.data} alt={file.name} className="max-h-full max-w-full rounded-lg object-contain shadow-2xl" onClick={(e) => e.stopPropagation()} />
+        <div className="grid min-h-0 flex-1 place-items-center bg-bg p-3">
+          <img
+            src={file.data}
+            alt={file.name}
+            className="max-h-[calc(100dvh-10rem)] max-w-full rounded-lg object-contain sm:max-h-[calc(100dvh-12rem)] lg:max-h-[calc(100dvh-14rem)]"
+          />
+        </div>
       </div>
     </div>,
     document.body,
@@ -336,7 +342,7 @@ function MessageList({
         const el = box.current!;
         stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
       }}
-      className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4"
+      className="thin-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4"
     >
       {messages.length === 0 ? (
         <div className="grid h-full place-items-center px-6 text-center">{empty}</div>
@@ -538,7 +544,7 @@ function Composer({ onSend, placeholder }: { onSend: (text: string, file: Attach
               send();
             }
           }}
-          className="max-h-36 min-h-9 flex-1 resize-none overscroll-contain bg-transparent py-2 text-sm outline-none placeholder:text-faint"
+          className="thin-scroll max-h-36 min-h-9 flex-1 resize-none overscroll-contain bg-transparent py-2 text-sm outline-none placeholder:text-faint"
         />
         <button
           onClick={send}
@@ -693,7 +699,7 @@ function InboxTab({ threads }: { threads: Thread[] }) {
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search people…" className="h-9 flex-1 bg-transparent text-sm outline-none placeholder:text-faint" />
         </label>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
+      <div className="thin-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
         {shown.length === 0 ? (
           <div className="grid h-full place-items-center px-6 text-center">
             <div>
@@ -786,7 +792,7 @@ function Panel({ online, threads, unread }: { online: Presence[]; threads: Threa
         </div>
 
         {showOnline && (
-          <div className="relative mt-3 max-h-48 overflow-y-auto overscroll-contain rounded-xl border border-line bg-card p-1.5">
+          <div className="thin-scroll relative mt-3 max-h-48 overflow-y-auto overscroll-contain rounded-xl border border-line bg-card p-1.5">
             {online.length === 0 ? (
               <p className="p-2 text-xs text-muted">Only you right now.</p>
             ) : (

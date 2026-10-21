@@ -64,12 +64,12 @@ export function SiteHeader() {
   }, []);
 
   return (
-    <header className={cx("fixed inset-x-0 top-0 z-50 transition-all duration-300", scrolled || open ? "glass border-b border-line shadow-lg shadow-black/5" : "border-b border-transparent")}>
+    <header className={cx("glass fixed inset-x-0 top-0 z-50 border-b border-line transition-shadow duration-300", (scrolled || open) && "shadow-lg shadow-black/5")}>
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link to="/" className="shrink-0">
           <Logo />
         </Link>
-        <nav className="hidden items-center gap-1 rounded-full border border-line bg-card/60 p-1 md:flex">
+        <nav className="hidden items-center gap-1 rounded-full border border-line bg-card p-1 md:flex">
           {NAV.map(([label, href]) => (
             <Link key={href} to={href} className="rounded-full px-4 py-1.5 text-sm text-muted transition hover:bg-card-hover hover:text-fg">
               {label}

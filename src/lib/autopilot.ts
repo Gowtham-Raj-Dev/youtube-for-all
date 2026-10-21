@@ -22,7 +22,7 @@ import {
 import type { Item, ItemStatus } from "./items";
 
 /** Bump when Code.gs.txt or the manifest changes; the app then offers “Update Autopilot”. */
-export const SCRIPT_VERSION = 1;
+export const SCRIPT_VERSION = 2;
 export const DAILY_LIMIT = 6;
 
 export type AutopilotConfig = {

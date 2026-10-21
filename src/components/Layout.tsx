@@ -394,7 +394,7 @@ function Shell() {
   return (
     <div className={cx("min-h-dvh transition-[padding] duration-300 ease-[cubic-bezier(.2,.8,.2,1)] lg:pl-68", chat.docked && (chat.collapsed ? "pr-16" : "pr-88"))}>
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-68 flex-col border-r border-line bg-bg-soft/70 p-4 backdrop-blur lg:flex">{sidebar}</aside>
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-68 flex-col border-r border-line bg-bg-soft p-4 lg:flex">{sidebar}</aside>
 
       {/* Top bar (fixed on every screen size) */}
       <header className="glass sticky top-0 z-30 border-b border-line">

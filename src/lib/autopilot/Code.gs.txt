@@ -16,6 +16,7 @@ var CHUNK = 16 * 1024 * 1024;            // multiple of 256 KiB; UrlFetch respon
 var MAX_RUN_MS = 4.5 * 60 * 1000;        // Apps Script stops a run at 6 minutes
 var LOOKAHEAD_MS = 26 * 3600 * 1000;     // upload up to a day ahead of the publish time
 var MIN_SCHEDULE_MS = 10 * 60 * 1000;    // closer than this → publish right away instead
+var BROWSER_GRACE_MS = 2 * 3600 * 1000;  // a browser upload silent this long was abandoned (tab closed, PC off)
 var YT_UPLOAD = 'https://www.googleapis.com/upload/youtube/v3';
 var YT_API = 'https://www.googleapis.com/youtube/v3';
 var COLS = ['id', 'kind', 'title', 'description', 'tags', 'categoryId', 'privacy', 'madeForKids', 'notify',
@@ -102,7 +103,7 @@ function tick() {
     var sheet = queueSheet();
     var now = Date.now();
     var todo = readRows(sheet).filter(function (r) {
-      if (r.status === 'uploading') return true;
+      if (r.status === 'uploading') return ownsUpload(r, now);
       return r.status === 'queued' && r.publishAt && new Date(r.publishAt).getTime() <= now + LOOKAHEAD_MS;
     });
     todo.sort(function (a, b) {
@@ -114,6 +115,7 @@ function tick() {
       if (Date.now() - started > MAX_RUN_MS) { note = 'continues next run'; break; }
       var r = readRow(sheet, todo[i].id);
       if (!r || (r.status !== 'queued' && r.status !== 'uploading')) continue; // changed in the app meanwhile
+      if (r.status === 'uploading' && !ownsUpload(r, Date.now())) continue;   // the app took it meanwhile
       if (r.status === 'queued' && uploadsToday() >= DAILY_LIMIT) { note = 'daily limit of ' + DAILY_LIMIT + ' reached'; break; }
       try {
         if (uploadRow(sheet, r, started) === 'done') done++;
@@ -139,6 +141,17 @@ function tick() {
     lock.releaseLock();
   }
   return result;
+}
+
+/**
+ * "uploading" with an upload session is Autopilot's own unfinished upload: resume it.
+ * Without a session the app's browser is uploading it right now ("Upload now" on the Queue page):
+ * leave it alone, unless it went quiet long ago (tab closed, PC off) — then finish the job here.
+ */
+function ownsUpload(r, now) {
+  if (r.session) return true;
+  var since = new Date(r.updatedAt).getTime();
+  return !since || now - since > BROWSER_GRACE_MS;
 }
 
 function uploadRow(sheet, r, started) {

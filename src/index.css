@@ -215,9 +215,13 @@ select {
 .thin-scroll::-webkit-scrollbar-thumb { border-width: 1px; }
 
 @supports not selector(::-webkit-scrollbar) {
-  html { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--accent) 35%, var(--border)) transparent; }
-  .thin-scroll { scrollbar-width: thin; }
+  .thin-scroll { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--accent) 35%, var(--border)) transparent; }
 }
+
+/* The page itself scrolls without a visible bar (it sat beside the docked chat at the right edge).
+   Wheel, touch, keys and trackpad still scroll it; inner panels keep their slim bars. */
+html { scrollbar-width: none; }
+html::-webkit-scrollbar { display: none; }
 
 /* Bars and menus: solid, so page content never shows through them. */
 .glass {

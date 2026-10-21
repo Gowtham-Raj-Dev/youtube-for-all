@@ -18,6 +18,7 @@ import Settings from "./pages/Settings";
 import Guide from "./pages/Guide";
 import Privacy from "./pages/Privacy";
 import Admin from "./pages/Admin";
+import Channels from "./pages/Channels";
 
 /** "/" on the custom domain, "/youtube-for-all" on <user>.github.io (set in index.html). */
 const BASENAME = ((window as { __BASE__?: string }).__BASE__ ?? "/").replace(/\/$/, "") || "/";
@@ -78,6 +79,7 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/privacy" element={<Privacy />} />
+            <Route path="/channels" element={<Channels />} />
             <Route element={<RequireAuth />}>
               <Route element={<Layout />}>
                 <Route path="/dashboard" element={<Dashboard />} />

@@ -19,10 +19,12 @@ import {
   ShieldCheck,
   Smartphone,
   Sparkles,
+  Users,
   Youtube,
   Zap,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
+import { creatorsLabel, useCreatorStats } from "../lib/community";
 import { useReveal } from "../lib/useReveal";
 import { SiteFooter, SiteHeader } from "../components/Site";
 import { Button, cx } from "../components/ui";
@@ -52,6 +54,34 @@ function SectionTitle({ eyebrow, title, children }: { eyebrow: string; title: Re
       <Eyebrow>{eyebrow}</Eyebrow>
       <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-5xl">{title}</h2>
       {children && <p className="mt-4 text-lg text-muted">{children}</p>}
+    </div>
+  );
+}
+
+/** Live creator / channel counts, linking to the public channel directory. */
+function CreatorsRow() {
+  const { creators, channels } = useCreatorStats();
+  return (
+    <div className="border-t border-line">
+      <div className="mx-auto flex max-w-4xl flex-col items-center gap-6 px-4 py-10 text-center sm:px-6 md:flex-row md:justify-between md:text-left">
+        <div className="flex items-center gap-4">
+          <span className="relative grid size-14 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent">
+            <Users className="size-6" />
+            <span className="absolute -top-1 -right-1 size-3 rounded-full bg-ok ring-2 ring-bg-soft" />
+          </span>
+          <div>
+            <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
+              <span className="grad-text tabular-nums">{creatorsLabel(creators)}</span> creators already use UTubeFlow
+            </h2>
+            <p className="mt-1 text-muted">
+              {channels ? `${channels} YouTube channels connected — ` : ""}every connected channel gets listed for free promotion.
+            </p>
+          </div>
+        </div>
+        <Link to="/channels" className="shrink-0">
+          <Button size="lg" variant="secondary" icon={<Youtube className="size-4.5 text-[#ff4d4d]" />}>See their channels</Button>
+        </Link>
+      </div>
     </div>
   );
 }
@@ -319,6 +349,7 @@ export default function Home() {
             );
           })}
         </div>
+        <CreatorsRow />
       </section>
 
       {/* ---------- Features (bento) ---------- */}

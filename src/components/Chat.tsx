@@ -11,9 +11,9 @@ import {
   Lock,
   MessageCircle,
   MessagesSquare,
+  PanelRightClose,
+  PanelRightOpen,
   Paperclip,
-  Pin,
-  PinOff,
   Search,
   Send,
   ShieldCheck,
@@ -53,14 +53,14 @@ import { cx, useToast } from "./ui";
 
 type Tab = "community" | "direct";
 type ChatState = {
-  /** Pinned: docked as a right column on wide screens (the page narrows to make room). */
-  pinned: boolean;
-  setPinned: (v: boolean) => void;
-  /** Open as an overlay (when not docked). */
+  /** Open as an overlay (narrow screens, where it can't dock). */
   open: boolean;
   setOpen: (v: boolean) => void;
-  /** Docked right now (pinned and the screen is wide enough). */
+  /** Docked as a right column (wide screens; the page narrows to make room). */
   docked: boolean;
+  /** Docked column folded down to a slim rail. */
+  collapsed: boolean;
+  setCollapsed: (v: boolean) => void;
   /** Wide enough to dock at all. */
   wide: boolean;
   tab: Tab;
@@ -85,47 +85,49 @@ function useWide() {
   return wide;
 }
 
-const PIN_KEY = "chat_pinned";
+const COLLAPSE_KEY = "chat_collapsed";
 
 export function ChatProvider({ children }: { children: ReactNode }) {
-  const [pinned, setPinnedState] = useState(() => {
+  const me = useUser();
+  const [collapsed, setCollapsedState] = useState(() => {
     try {
-      return localStorage.getItem(PIN_KEY) !== "0";
+      return localStorage.getItem(COLLAPSE_KEY) === "1";
     } catch {
-      return true;
+      return false;
     }
   });
+  const setCollapsed = useCallback((v: boolean) => {
+    setCollapsedState(v);
+    try {
+      localStorage.setItem(COLLAPSE_KEY, v ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, []);
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("community");
   const [thread, setThread] = useState<string | null>(null);
   const [threadOwner, setThreadOwner] = useState<ThreadOwner | null>(null);
   const wide = useWide();
-  const docked = pinned && wide;
-
-  const setPinned = useCallback((v: boolean) => {
-    setPinnedState(v);
-    setOpen(false);
-    try {
-      localStorage.setItem(PIN_KEY, v ? "1" : "0");
-    } catch {
-      /* ignore */
-    }
-  }, []);
+  // Always docked on wide screens; it only expands or collapses there.
+  const docked = wide;
 
   const openThread = useCallback(
     (uid: string | null, owner?: ThreadOwner) => {
+      if (uid && uid === me.uid) return; // no thread with yourself
       setThread(uid);
       setThreadOwner(owner ?? null);
       if (uid) {
         setTab("direct");
-        if (!docked) setOpen(true);
+        if (docked) setCollapsed(false);
+        else setOpen(true);
       }
     },
-    [docked],
+    [docked, setCollapsed, me.uid],
   );
 
   return (
-    <ChatContext.Provider value={{ pinned, setPinned, open, setOpen, docked, wide, tab, setTab, thread, openThread, threadOwner }}>
+    <ChatContext.Provider value={{ open, setOpen, docked, collapsed, setCollapsed, wide, tab, setTab, thread, openThread, threadOwner }}>
       {children}
     </ChatContext.Provider>
   );
@@ -689,7 +691,8 @@ function InboxTab({ threads }: { threads: Thread[] }) {
 function useUnread() {
   const user = useUser();
   const admin = isAdminUser(user);
-  const threads = useThreads(admin);
+  const all = useThreads(admin);
+  const threads = useMemo(() => all.filter((t) => t.uid !== user.uid), [all, user.uid]);
   const mine = useThread(admin ? null : user.uid);
   return { threads, unread: admin ? threads.reduce((n, t) => n + t.unreadAdmin, 0) : (mine?.unreadUser ?? 0) };
 }
@@ -717,22 +720,17 @@ function Panel({ online, threads, unread }: { online: Presence[]; threads: Threa
                   <span className="absolute inset-0 animate-ping rounded-full bg-ok opacity-60" />
                   <span className="relative size-2 rounded-full bg-ok" />
                 </span>
-                {online.length} online
+                {online.length ? `${online.length} other${online.length > 1 ? "s" : ""} online` : "Only you online"}
               </button>
             </div>
           </div>
           <div className="flex items-center gap-1">
             <OnlineStack people={online} />
-            {chat.wide && (
-            <button
-              onClick={() => chat.setPinned(!chat.docked)}
-              className="ml-1 grid size-8 place-items-center rounded-lg text-muted transition hover:bg-card-hover hover:text-fg"
-              title={chat.docked ? "Unpin — give the page full width" : "Pin to the side"}
-            >
-              {chat.docked ? <PinOff className="size-4" /> : <Pin className="size-4" />}
-            </button>
-            )}
-            {!chat.docked && (
+            {chat.docked ? (
+              <button onClick={() => chat.setCollapsed(true)} className="ml-1 grid size-8 place-items-center rounded-lg text-muted transition hover:bg-card-hover hover:text-fg" title="Collapse chat">
+                <PanelRightClose className="size-4.5" />
+              </button>
+            ) : (
               <button onClick={() => chat.setOpen(false)} className="grid size-8 place-items-center rounded-lg text-muted transition hover:bg-card-hover hover:text-fg" title="Close">
                 <X className="size-4.5" />
               </button>
@@ -743,7 +741,7 @@ function Panel({ online, threads, unread }: { online: Presence[]; threads: Threa
         {showOnline && (
           <div className="relative mt-3 max-h-48 overflow-y-auto rounded-xl border border-line bg-card p-1.5">
             {online.length === 0 ? (
-              <p className="p-2 text-xs text-muted">Nobody else right now.</p>
+              <p className="p-2 text-xs text-muted">Only you right now.</p>
             ) : (
               online.map((p) => (
                 <div key={p.uid} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
@@ -752,7 +750,7 @@ function Panel({ online, threads, unread }: { online: Presence[]; threads: Threa
                     <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-ok ring-2 ring-card" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-semibold">{p.name}{p.uid === user.uid && <span className="font-normal text-faint"> (you)</span>}</span>
+                    <span className="block truncate text-xs font-semibold">{p.name}</span>
                     {p.channel && <span className="block truncate text-[10px] text-muted">{p.channel}</span>}
                   </span>
                 </div>
@@ -792,21 +790,60 @@ function Panel({ online, threads, unread }: { online: Presence[]; threads: Threa
   );
 }
 
-/** The chat: a docked right column when pinned on wide screens, otherwise a launcher + overlay. */
+/** The chat: a docked right column on wide screens (expand / collapse), otherwise a launcher + overlay. */
 export function ChatDock() {
   const user = useUser();
   const yt = useYouTube();
   const chat = useChat();
   usePresenceHeartbeat(user, yt.channel?.title ?? null);
-  const online = useOnline();
+  // You can't message yourself, so leave yourself out of "online" and the inbox.
+  const everyone = useOnline();
+  const online = useMemo(() => everyone.filter((p) => p.uid !== user.uid), [everyone, user.uid]);
   const { threads, unread } = useUnread();
 
-  if (chat.docked)
+  // Docked: one column that animates between the full panel and a slim rail.
+  // The panel keeps its full width inside, so nothing reflows while the column slides.
+  if (chat.docked) {
+    const folded = chat.collapsed;
     return (
-      <aside className="fixed inset-y-0 right-0 z-30 flex w-88 flex-col border-l border-line">
-        <Panel online={online} threads={threads} unread={unread} />
+      <aside
+        className={cx(
+          "fixed inset-y-0 right-0 z-30 overflow-hidden border-l border-line bg-bg-soft transition-[width] duration-300 ease-[cubic-bezier(.2,.8,.2,1)]",
+          folded ? "w-16" : "w-88",
+        )}
+      >
+        <div
+          inert={folded}
+          className={cx("absolute inset-y-0 right-0 flex w-88 flex-col transition duration-300", folded ? "pointer-events-none translate-x-6 opacity-0" : "translate-x-0 opacity-100 delay-75")}
+        >
+          <Panel online={online} threads={threads} unread={unread} />
+        </div>
+        <div
+          inert={!folded}
+          className={cx("absolute inset-y-0 left-0 flex w-16 flex-col items-center gap-3 py-4 transition duration-200", folded ? "opacity-100 delay-150" : "pointer-events-none opacity-0")}
+        >
+          <button onClick={() => chat.setCollapsed(false)} className="grid size-9 place-items-center rounded-xl text-muted transition hover:bg-card-hover hover:text-fg" title="Expand chat">
+            <PanelRightOpen className="size-4.5" />
+          </button>
+          <button onClick={() => chat.setCollapsed(false)} className="grad-bg relative grid size-10 place-items-center rounded-xl shadow-lg shadow-accent/30 transition hover:scale-105" title="Open Creator Chat">
+            <MessageCircle className="size-5" />
+            {unread > 0 && <span className="absolute -top-1.5 -right-1.5 grid min-w-5 place-items-center rounded-full bg-danger px-1 text-[10px] font-bold text-white ring-2 ring-bg-soft">{unread}</span>}
+          </button>
+          <span className="flex items-center gap-1 text-[11px] font-medium text-ok" title={`${online.length} other${online.length === 1 ? "" : "s"} online`}>
+            <span className="size-1.5 rounded-full bg-ok" />
+            {online.length}
+          </span>
+          <div className="flex flex-col items-center -space-y-2">
+            {online.slice(0, 5).map((p) => (
+              <span key={p.uid} title={p.name}>
+                <Avatar src={p.photo} name={p.name} className="size-7 ring-2 ring-bg-soft" />
+              </span>
+            ))}
+          </div>
+        </div>
       </aside>
     );
+  }
 
   return (
     <>
@@ -827,8 +864,8 @@ export function ChatDock() {
       )}
       {chat.open && (
         <div className="fixed inset-0 z-[60]">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => chat.setOpen(false)} />
-          <div className="absolute inset-y-0 right-0 flex w-[min(24rem,100vw)] flex-col border-l border-line shadow-2xl shadow-black/50">
+          <div className="animate-fade-in absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => chat.setOpen(false)} />
+          <div className="animate-slide-in-right absolute inset-y-0 right-0 flex w-[min(24rem,100vw)] flex-col border-l border-line shadow-2xl shadow-black/50">
             <Panel online={online} threads={threads} unread={unread} />
           </div>
         </div>

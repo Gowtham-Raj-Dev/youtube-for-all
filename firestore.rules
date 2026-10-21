@@ -5,6 +5,7 @@ rules_version = '2';
 // - chat/{id}: the community chat. Only users with a connected YouTube channel (and the admin) can post.
 //   Messages count as expired 3 hours after createdAt, and then anyone signed in may delete them.
 // - dms/{uid}: a private, permanent thread between one user and the admin.
+// - members/{uid}, channels/{uid}: public creator count and channel directory (anyone may read).
 // Nothing else in the database is reachable from the browser.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -66,6 +67,28 @@ service cloud.firestore {
     // Admin dashboard: every user's videos in one collection-group query.
     match /{path=**}/items/{itemId} {
       allow read: if isAdmin();
+    }
+
+    // Public: one empty-ish doc per creator, so the home page can show how many there are.
+    match /members/{uid} {
+      allow read: if true;
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['joinedAt'])
+        && request.resource.data.joinedAt is timestamp;
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+
+    // Public channel directory (/channels): what any visitor of the channel on YouTube already sees.
+    match /channels/{uid} {
+      allow read: if true;
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['id', 'title', 'handle', 'thumbnail', 'subscribers', 'videos', 'updatedAt'])
+        && request.resource.data.id is string && request.resource.data.id.size() <= 64
+        && request.resource.data.title is string && request.resource.data.title.size() <= 200
+        && request.resource.data.handle is string && request.resource.data.handle.size() <= 100
+        && request.resource.data.thumbnail is string && request.resource.data.thumbnail.size() <= 1000
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if isOwner(uid) || isAdmin();
     }
 
     match /presence/{uid} {

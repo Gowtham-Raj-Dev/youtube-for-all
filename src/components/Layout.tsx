@@ -17,7 +17,6 @@ import {
   Menu,
   Crown,
   Moon,
-  Plus,
   Settings as SettingsIcon,
   Smartphone,
   Sun,
@@ -187,7 +186,7 @@ function UploadsDock() {
   const { jobs, batches, cancel, stopBatch, dismissBatch } = useUploads();
   const chat = useChat();
   // Sit left of the docked chat, or above the chat launcher.
-  const pos = chat.docked ? "right-[23rem] bottom-6" : "right-4 bottom-36 lg:bottom-22";
+  const pos = chat.docked ? (chat.collapsed ? "right-20 bottom-6" : "right-[23rem] bottom-6") : "right-4 bottom-36 lg:bottom-22";
   const [min, setMin] = useState(false);
   const inBatch = new Set(batches.map((b) => b.currentItemId).filter(Boolean));
   const loose = Object.values(jobs).filter((j) => !inBatch.has(j.itemId));
@@ -201,7 +200,7 @@ function UploadsDock() {
     return (
       <button
         onClick={() => setMin(false)}
-        className={cx("fixed z-40 flex items-center gap-2.5 rounded-full border border-line bg-card py-2 pr-4 pl-2.5 text-sm font-semibold shadow-2xl shadow-black/30", pos)}
+        className={cx("fixed z-40 flex items-center gap-2.5 rounded-full transition-[right] duration-300 border border-line bg-card py-2 pr-4 pl-2.5 text-sm font-semibold shadow-2xl shadow-black/30", pos)}
       >
         {active.length || loose.length ? <Loader2 className="size-4.5 animate-spin text-accent" /> : <CheckCircle2 className="size-4.5 text-ok" />}
         <span className="tabular-nums">{totalAll ? `${doneAll} / ${totalAll}` : "Uploading"}</span>
@@ -210,7 +209,7 @@ function UploadsDock() {
     );
 
   return (
-    <div className={cx("fixed z-40 w-[min(23rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-line bg-card shadow-2xl shadow-black/40", pos)}>
+    <div className={cx("fixed z-40 w-[min(23rem,calc(100vw-2rem))] transition-[right] duration-300 overflow-hidden rounded-2xl border border-line bg-card shadow-2xl shadow-black/40", pos)}>
       <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
         <span className="flex items-center gap-2 text-sm font-semibold">
           {active.length || loose.length ? <Loader2 className="size-4 animate-spin text-accent" /> : <CheckCircle2 className="size-4 text-ok" />}
@@ -312,7 +311,6 @@ export default function Layout() {
 function Shell() {
   const user = useUser();
   const chat = useChat();
-  const groups = isAdminUser(user) ? [...GROUPS, ADMIN_GROUP] : GROUPS;
   useEffect(() => {
     saveProfile(user);
   }, [user]);
@@ -327,11 +325,11 @@ function Shell() {
   }, [loc.pathname]);
   const current = ALL.find((n) => loc.pathname.startsWith(n.to));
 
-  const nav = (
-    <nav className="space-y-5">
+  const navGroups = (groups: typeof GROUPS) => (
+    <nav className="space-y-3.5">
       {groups.map((g) => (
         <div key={g.title}>
-          <div className="mb-1.5 px-3 text-[10px] font-semibold tracking-wider text-faint uppercase">{g.title}</div>
+          <div className="mb-1 px-3 text-[10px] font-semibold tracking-wider text-faint uppercase">{g.title}</div>
           <div className="space-y-0.5">
             {g.items.map(({ to, label, icon: Icon, badge }) => (
               <NavLink
@@ -339,7 +337,7 @@ function Shell() {
                 to={to}
                 className={({ isActive }) =>
                   cx(
-                    "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
+                    "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition",
                     to === "/admin"
                       ? cx("border border-amber-400/30 bg-gradient-to-r from-amber-400/15 to-fuchsia-500/10 text-amber-400", isActive ? "from-amber-400/25 to-fuchsia-500/20 text-fg" : "hover:from-amber-400/25")
                       : isActive
@@ -366,19 +364,15 @@ function Shell() {
 
   const sidebar = (
     <>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <Link to="/dashboard">
-          <Logo className="mb-6 px-2 pt-1" />
+          <Logo className="mb-5 px-2 pt-1" />
         </Link>
-        <Link
-          to="/upload/short"
-          className="grad-bg mb-6 flex h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold text-on-accent shadow-lg shadow-accent/25 transition hover:brightness-110"
-        >
-          <Plus className="size-4.5" /> New upload
-        </Link>
-        {nav}
+        {navGroups(GROUPS)}
       </div>
-      <div className="space-y-3 pt-4">
+      {/* Owner tools sit at the bottom, just above the Autopilot card. */}
+      <div className="space-y-3 pt-3">
+        {isAdminUser(user) && navGroups([ADMIN_GROUP])}
         <Link
           to="/settings#autopilot"
           className={cx("flex items-center gap-3 rounded-xl border p-3 transition", autopilot.running ? "border-ok/25 bg-ok/5" : "border-line bg-card hover:border-accent/40")}
@@ -398,7 +392,7 @@ function Shell() {
   );
 
   return (
-    <div className={cx("min-h-dvh lg:pl-68", chat.docked && "pr-88")}>
+    <div className={cx("min-h-dvh transition-[padding] duration-300 ease-[cubic-bezier(.2,.8,.2,1)] lg:pl-68", chat.docked && (chat.collapsed ? "pr-16" : "pr-88"))}>
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-68 flex-col border-r border-line bg-bg-soft/70 p-4 backdrop-blur lg:flex">{sidebar}</aside>
 

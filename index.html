@@ -126,12 +126,26 @@
         var t = localStorage.getItem("theme");
         if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
       } catch (e) {}
+      document.documentElement.classList.add("js");
     </script>
+    <style>
+      /* Boot splash, shown until React mounts. The SEO copy stays in the HTML for crawlers but is hidden from people. */
+      html { background: #060c0a; }
+      @media (prefers-color-scheme: light) { html:not([data-theme="dark"]) { background: #f3f8f6; } }
+      html[data-theme="light"] { background: #f3f8f6; }
+      .boot { display: none; }
+      .js .boot { position: fixed; inset: 0; display: grid; place-items: center; }
+      .boot-mark { position: relative; display: grid; place-items: center; width: 72px; height: 72px; }
+      .boot-mark img { width: 44px; height: 44px; border-radius: 12px; }
+      .boot-mark::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 3px solid rgba(52, 211, 153, 0.18); border-top-color: #34d399; animation: boot-spin 0.8s linear infinite; }
+      @keyframes boot-spin { to { transform: rotate(360deg); } }
+      .js .seo-copy { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    </style>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
     <!-- Crawlable copy for bots that don't run JS; React replaces it on load. Rewritten per page at build time. -->
-    <div id="root"><!--seo:start--><main style="max-width:720px;margin:0 auto;padding:96px 16px;font-family:Inter,system-ui,sans-serif;color:#9fb3ab">
+    <div id="root"><div class="boot" aria-hidden="true"><span class="boot-mark"><img src="favicon.svg" alt="" /></span></div><!--seo:start--><main class="seo-copy" style="max-width:720px;margin:0 auto;padding:96px 16px;font-family:Inter,system-ui,sans-serif;color:#9fb3ab">
       <h1>Free YouTube Automation — Upload once. Post every day.</h1>
       <p>UTubeFlow by CodeLove is a free YouTube automation tool for every creator. Bulk upload 100+ YouTube videos and Shorts, pick daily time slots, and Autopilot publishes them on schedule from your own Google account — even when your computer is off. No plans, no payments, no credit card: free YouTube automation using your own free YouTube API quota and Google Drive.</p>
       <p><a href="/">Free YouTube automation</a> · <a href="/login">Start free</a> · <a href="/privacy">Privacy</a> · <a href="https://codelove.in">CodeLove</a></p>

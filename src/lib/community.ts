@@ -7,6 +7,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getCountFromServer,
   getDocs,
   increment,
   limit,
@@ -331,9 +332,72 @@ export function markThreadRead(uid: string, who: "admin" | "user") {
 // ---------- Profile fields the admin dashboard reads ----------
 
 export function saveProfile(user: User) {
+  // members/{uid} holds nothing but the join date; it is public so the home page can count creators.
+  const joined = Date.parse(user.metadata.creationTime ?? "");
+  setDoc(doc(db, "members", user.uid), { joinedAt: Timestamp.fromMillis(Number.isFinite(joined) ? joined : Date.now()) }).catch(() => {});
   return setDoc(
     doc(db, "users", user.uid),
     { email: user.email ?? "", name: user.displayName ?? "", photo: user.photoURL ?? "", lastLogin: serverTimestamp(), createdAt: user.metadata.creationTime ?? "" },
     { merge: true },
   ).catch(() => {});
+}
+
+// ---------- Public creator directory (home page count + /channels) ----------
+
+export type PublicChannel = { uid: string; id: string; title: string; handle: string; thumbnail: string; subscribers: number | null; videos: number };
+
+export const channelUrl = (c: Pick<PublicChannel, "id" | "handle">) =>
+  c.handle ? `https://www.youtube.com/${c.handle.startsWith("@") ? c.handle : `@${c.handle}`}` : `https://www.youtube.com/channel/${c.id}`;
+
+/** Shown until the real number passes it. */
+export const MIN_CREATORS = 10;
+
+export const fmtCount = (n: number) => Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(n);
+
+/** "10+" until there are more real creators than that. */
+export const creatorsLabel = (n: number | null) => (n == null || n < MIN_CREATORS ? `${MIN_CREATORS}+` : fmtCount(n));
+
+/** Creators who signed up and channels they connected. Counts are re-fetched every minute. */
+export function useCreatorStats() {
+  const [stats, setStats] = useState<{ creators: number | null; channels: number | null }>({ creators: null, channels: null });
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      Promise.all([getCountFromServer(collection(db, "members")), getCountFromServer(collection(db, "channels"))])
+        .then(([m, c]) => alive && setStats({ creators: m.data().count, channels: c.data().count }))
+        .catch(() => {});
+    load();
+    const id = setInterval(load, 60_000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
+  return stats;
+}
+
+/** Every connected channel, biggest first, live. */
+export function usePublicChannels() {
+  const [channels, setChannels] = useState<PublicChannel[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(
+    () =>
+      onSnapshot(
+        query(collection(db, "channels"), limit(500)),
+        (snap) => {
+          setChannels(
+            snap.docs
+              .map((d) => {
+                const x = d.data();
+                return { uid: d.id, id: x.id, title: x.title ?? "", handle: x.handle ?? "", thumbnail: x.thumbnail ?? "", subscribers: x.subscribers ?? null, videos: x.videos ?? 0 };
+              })
+              .sort((a, b) => (b.subscribers ?? -1) - (a.subscribers ?? -1)),
+          );
+          setLoading(false);
+        },
+        () => setLoading(false),
+      ),
+    [],
+  );
+  return { channels, loading };
 }

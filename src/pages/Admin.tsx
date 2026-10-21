@@ -246,6 +246,7 @@ function Leaderboard({ rows }: { rows: Row[] }) {
 
 function UserDetail({ row }: { row: Row }) {
   const chat = useChat();
+  const me = useUser();
   const items = [...row.items].sort((a, b) => (b.uploadedAt ?? b.updatedAt) - (a.uploadedAt ?? a.updatedAt));
   return (
     <div className="border-t border-line bg-bg-soft/60 p-4 sm:p-5">
@@ -294,12 +295,18 @@ function UserDetail({ row }: { row: Row }) {
                 </div>
               ))}
             </dl>
-            <button
-              onClick={() => chat.openThread(row.uid, { name: row.name, email: row.email, photo: row.photo, channel: row.channel?.title ?? null })}
-              className="grad-bg mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold shadow-lg shadow-accent/25 transition hover:brightness-110"
-            >
-              <MessageCircle className="size-4" /> Message privately
-            </button>
+            {row.uid === me.uid ? (
+              <div className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line text-sm text-faint">
+                <MessageCircle className="size-4" /> This is you
+              </div>
+            ) : (
+              <button
+                onClick={() => chat.openThread(row.uid, { name: row.name, email: row.email, photo: row.photo, channel: row.channel?.title ?? null })}
+                className="grad-bg mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold shadow-lg shadow-accent/25 transition hover:brightness-110"
+              >
+                <MessageCircle className="size-4" /> Message privately
+              </button>
+            )}
           </div>
         </div>
 

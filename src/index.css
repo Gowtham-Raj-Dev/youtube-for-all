@@ -173,6 +173,15 @@ select {
 .animate-blob { animation: blob 18s ease-in-out infinite; }
 .fade-up { animation: fade-up .7s cubic-bezier(.2, .7, .2, 1) both; }
 
+/* Chat overlay: backdrop fades, panel slides in from the right. */
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slide-in-right { from { transform: translateX(100%); } to { transform: none; } }
+.animate-fade-in { animation: fade-in .25s ease-out both; }
+.animate-slide-in-right { animation: slide-in-right .3s cubic-bezier(.2, .8, .2, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in, .animate-slide-in-right { animation: none; }
+}
+
 .grad-text-anim {
   background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent));
   background-size: 200% auto;

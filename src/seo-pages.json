@@ -14,6 +14,12 @@
       "h1": "Sign in to UTubeFlow — free YouTube automation",
       "body": "Sign in with your Google account to start automating your YouTube channel for free. Bulk upload, schedule Shorts and long videos, and let Autopilot post them on time."
     },
+    "/channels": {
+      "title": "Creator Channels — YouTube Channels Using UTubeFlow | UTubeFlow",
+      "description": "Discover YouTube creators who post on autopilot with UTubeFlow, the free YouTube automation tool. Visit their channels and subscribe.",
+      "h1": "Creator Channels — YouTube creators on UTubeFlow",
+      "body": "Real YouTube channels that schedule their videos and Shorts for free with UTubeFlow. Connect your own channel and it is listed here automatically — free promotion for every creator."
+    },
     "/privacy": {
       "title": "Privacy Policy | UTubeFlow — Free YouTube Automation",
       "description": "How UTubeFlow, the free YouTube automation tool by CodeLove, handles your data: no video files, tokens or passwords stored. Delete everything any time.",

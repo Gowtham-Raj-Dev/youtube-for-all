@@ -22,7 +22,7 @@ function seoBlock(page) {
   const links = Object.entries(seo.public)
     .map(([path, p]) => `<a href="${path}">${esc(p.h1.split(" — ")[0])}</a>`)
     .join(" · ");
-  return `<main style="max-width:720px;margin:0 auto;padding:96px 16px;font-family:Inter,system-ui,sans-serif;color:#9fb3ab">
+  return `<main class="seo-copy" style="max-width:720px;margin:0 auto;padding:96px 16px;font-family:Inter,system-ui,sans-serif;color:#9fb3ab">
       <h1>${esc(page.h1)}</h1>
       <p>${esc(page.body)}</p>
       <p>${links} · <a href="https://codelove.in">CodeLove</a></p>

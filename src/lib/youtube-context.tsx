@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { doc, setDoc } from "firebase/firestore";
+import { deleteDoc, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import { useUser } from "./auth";
 import { useSettings } from "./settings";
@@ -59,13 +59,18 @@ export function YouTubeProvider({ children }: { children: ReactNode }) {
 
   // The channel summary also lives on users/{uid}: the chat rules check it (only connected
   // channels can post) and the admin dashboard lists it.
+  // A public copy in channels/{uid} feeds the /channels directory (free promotion for creators).
   const syncChannel = useCallback(
-    (c: Channel | null) =>
-      setDoc(
+    (c: Channel | null) => {
+      const pub = doc(db, "channels", user.uid);
+      if (c) setDoc(pub, { id: c.id, title: c.title, handle: c.handle, thumbnail: c.thumbnail, subscribers: c.subscribers, videos: c.videos, updatedAt: serverTimestamp() }).catch(() => {});
+      else deleteDoc(pub).catch(() => {});
+      return setDoc(
         doc(db, "users", user.uid),
         { channel: c ? { id: c.id, title: c.title, handle: c.handle, thumbnail: c.thumbnail, subscribers: c.subscribers, views: c.views, videos: c.videos } : null },
         { merge: true },
-      ).catch(() => {}),
+      ).catch(() => {});
+    },
     [user.uid],
   );
   useEffect(() => {

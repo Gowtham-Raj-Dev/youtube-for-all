@@ -48,6 +48,7 @@ const NAV = [
   ["How it works", "/#how"],
   ["Autopilot", "/#autopilot"],
   ["FAQ", "/#faq"],
+  ["Channels", "/channels"],
 ];
 
 /** Fixed, glassy top bar for the public pages. Pages add `pt-16` (its height) themselves. */
@@ -121,6 +122,7 @@ export function SiteFooter() {
               <li><Link to="/#features" className="text-muted hover:text-fg">Features</Link></li>
               <li><Link to="/#autopilot" className="text-muted hover:text-fg">Autopilot</Link></li>
               <li><Link to="/#faq" className="text-muted hover:text-fg">FAQ</Link></li>
+              <li><Link to="/channels" className="text-muted hover:text-fg">Creator channels</Link></li>
               <li><Link to="/login" className="text-muted hover:text-fg">Sign in</Link></li>
             </ul>
           </div>

@@ -428,7 +428,15 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
               />
 
               {mode === "schedule" &&
-                (viaAutopilot ? (
+                (viaAutopilot && !autopilot.running ? (
+                  <div className="flex gap-3 rounded-xl border border-warn/30 bg-warn/5 p-3 text-xs">
+                    <Bot className="size-4.5 shrink-0 text-warn" />
+                    <span className="text-muted">
+                      <b className="text-fg">Autopilot is paused.</b> Videos are saved to your Google Drive, but nothing goes to YouTube until you{" "}
+                      <Link to="/settings#autopilot" className="font-medium text-accent hover:underline">activate Autopilot</Link>.
+                    </span>
+                  </div>
+                ) : viaAutopilot ? (
                   <div className="flex gap-3 rounded-xl border border-ok/25 bg-ok/5 p-3 text-xs">
                     <Bot className="size-4.5 shrink-0 text-ok" />
                     <span className="text-muted">

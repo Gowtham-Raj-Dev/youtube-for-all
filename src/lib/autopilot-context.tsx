@@ -1,7 +1,9 @@
 // Keeps the app's list (Firestore) and Autopilot's job sheet in step. The app is the only editor:
 // adding/editing/deleting here writes both; the script's progress is pulled back by sync().
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { db } from "./firebase";
 import { useUser } from "./auth";
 import { useSettings } from "./settings";
 import { useYouTube } from "./youtube-context";
@@ -48,7 +50,39 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
   const yt = useYouTube();
   const { items } = useItems(user.uid);
   const config = isReady(settings.autopilot) ? settings.autopilot : null;
-  const [status, setStatus] = useState<AutopilotStatus | null>(null);
+  // The last status read is also kept on users/{uid}: signing out (or another browser) has no Drive
+  // token to read the sheet, but the script keeps running on Google's servers — don't show "paused".
+  const userRef = useMemo(() => doc(db, "users", user.uid), [user.uid]);
+  const [status, setStatusState] = useState<AutopilotStatus | null>(null);
+  const [fresh, setFresh] = useState(false);
+  const freshRef = useRef(false);
+  const savedRef = useRef("");
+  useEffect(
+    () =>
+      onSnapshot(
+        userRef,
+        (snap) => {
+          const s = (snap.data()?.autopilotStatus ?? null) as AutopilotStatus | null;
+          savedRef.current = JSON.stringify(s);
+          if (!freshRef.current) setStatusState(s);
+        },
+        () => {},
+      ),
+    [userRef],
+  );
+  const setStatus = useCallback(
+    (s: AutopilotStatus | null) => {
+      setStatusState(s);
+      setFresh(true);
+      freshRef.current = true;
+      const json = JSON.stringify(s);
+      if (json !== savedRef.current) {
+        savedRef.current = json;
+        setDoc(userRef, { autopilotStatus: s }, { merge: true }).catch(() => {});
+      }
+    },
+    [userRef],
+  );
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<number | null>(null);
   const itemsRef = useRef(items);
@@ -87,7 +121,7 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
     } finally {
       setSyncing(false);
     }
-  }, [config, yt, user.uid]);
+  }, [config, yt, user.uid, setStatus]);
 
   // Sync when the connection comes up, then every few minutes while the app is open.
   useEffect(() => {
@@ -157,8 +191,11 @@ export function AutopilotProvider({ children }: { children: ReactNode }) {
     [config, yt, user.uid],
   );
 
+  // Not read this session yet → trust the cached trigger; only the Pause button turns it off.
+  const running = fresh ? isRunning(status) : !!config && status?.trigger === "on";
+
   return (
-    <AutopilotContext.Provider value={{ config, status, running: isRunning(status), syncing, lastSync, sync, setStatus, queue, edit, remove }}>
+    <AutopilotContext.Provider value={{ config, status, running, syncing, lastSync, sync, setStatus, queue, edit, remove }}>
       {children}
     </AutopilotContext.Provider>
   );

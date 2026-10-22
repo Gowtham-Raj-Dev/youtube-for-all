@@ -370,6 +370,7 @@ function AutopilotSection() {
   const reset = async () => {
     if (!confirm("Remove Autopilot from this app? Click “Pause” first so the script stops running. Your Drive folder stays; queued videos won't be uploaded.")) return;
     await save({ autopilot: null });
+    autopilot.setStatus(null);
   };
 
   const done = [isTicked("ap-script") || !!cfg, yt.driveAllowed || !!cfg, !!cfg && !outdated, running];
@@ -470,7 +471,7 @@ function AutopilotSection() {
               <span className="mr-auto text-xs text-muted">Tools</span>
               <Button size="sm" icon={<Play className="size-3.5" />} onClick={() => openWebApp(cfg, "run")} title="Runs Autopilot once now and shows the result">Run now</Button>
               <Button size="sm" icon={<Wrench className="size-3.5" />} loading={step === "Updating…"} onClick={update} title="Re-install the latest script">Update</Button>
-              <Button size="sm" icon={<Pause className="size-3.5" />} onClick={() => openWebApp(cfg, "stop")}>Pause</Button>
+              <Button size="sm" icon={<Pause className="size-3.5" />} onClick={() => { openWebApp(cfg, "stop"); autopilot.setStatus({ ...autopilot.status, trigger: "off" }); }}>Pause</Button>
               <Button size="sm" variant="danger" icon={<Trash2 className="size-3.5" />} onClick={reset}>Remove</Button>
             </div>
           )}

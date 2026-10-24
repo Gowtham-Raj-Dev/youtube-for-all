@@ -7,7 +7,6 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  Clapperboard,
   CloudUpload,
   FileSpreadsheet,
   FolderLock,
@@ -28,6 +27,24 @@ import { creatorsLabel, useCreatorStats } from "../lib/community";
 import { useReveal } from "../lib/useReveal";
 import { SiteFooter, SiteHeader } from "../components/Site";
 import { Button, cx } from "../components/ui";
+
+/** The setup walkthrough on the CodeLove channel, per language. */
+const TUTORIALS = {
+  en: { id: "0vIARRYYmI0", label: "English", title: "UTubeFlow full setup guide (English)" },
+  ta: { id: "8ut4ldMkSEE", label: "தமிழ்", title: "UTubeFlow full setup guide (Tamil)" },
+} as const;
+type TutorialLang = keyof typeof TUTORIALS;
+const TUTORIAL_LANG_KEY = "utf-tutorial-lang";
+
+function initialTutorialLang(): TutorialLang {
+  try {
+    const saved = localStorage.getItem(TUTORIAL_LANG_KEY);
+    if (saved === "en" || saved === "ta") return saved;
+  } catch {
+    // storage blocked — fall through
+  }
+  return typeof navigator !== "undefined" && navigator.language?.toLowerCase().startsWith("ta") ? "ta" : "en";
+}
 
 function PrimaryCta({ label = "Start free — no card" }: { label?: string }) {
   const { user } = useAuth();
@@ -89,68 +106,75 @@ function CreatorsRow() {
 // ---------- Hero visual ----------
 
 function HeroVisual() {
-  const rows = [
-    { t: "Today · 6:30 PM", title: "Office boss vs Monday", kind: "short", state: "Scheduled" },
-    { t: "Tomorrow · 8:00 AM", title: "Amma's phone call logic", kind: "short", state: "Scheduled" },
-    { t: "Tomorrow · 1:00 PM", title: "Full episode — A day in the life", kind: "video", state: "Queued" },
-    { t: "Tomorrow · 6:30 PM", title: "When the Wi-Fi goes down", kind: "short", state: "Queued" },
-  ];
+  const [lang, setLang] = useState<TutorialLang>(initialTutorialLang);
+  const video = TUTORIALS[lang];
+  const pick = (l: TutorialLang) => {
+    setLang(l);
+    try {
+      localStorage.setItem(TUTORIAL_LANG_KEY, l);
+    } catch {
+      // ignore
+    }
+  };
+
   return (
-    <div className="relative mx-auto w-full max-w-lg lg:max-w-none">
+    <div id="tutorial" className="relative mx-auto w-full max-w-xl scroll-mt-24 lg:max-w-none">
       <div className="absolute -inset-10 rounded-full bg-gradient-to-tr from-accent/30 via-accent-2/20 to-transparent blur-3xl" />
 
-      {/* Main app card */}
+      {/* Setup tutorial in an app-window frame */}
       <div className="relative rounded-2xl border border-line bg-card/95 shadow-2xl shadow-black/30 backdrop-blur">
         <div className="flex items-center gap-2 border-b border-line px-4 py-3">
           <span className="size-2.5 rounded-full bg-[#ff5f57]" />
           <span className="size-2.5 rounded-full bg-[#febc2e]" />
           <span className="size-2.5 rounded-full bg-[#28c840]" />
-          <span className="ml-3 flex-1 truncate rounded-md bg-bg-soft px-3 py-1 text-center text-[11px] text-faint">utubeflow.codelove.in/queue</span>
+          <span className="ml-3 flex min-w-0 flex-1 items-center justify-center gap-1.5 truncate rounded-md bg-bg-soft px-3 py-1 text-[11px] text-faint">
+            <Play className="size-3 shrink-0 fill-current text-accent" /> <span className="truncate">Full setup guide</span>
+          </span>
+          <div role="tablist" aria-label="Video language" className="flex shrink-0 rounded-lg border border-line bg-bg-soft p-0.5 text-[11px] font-semibold">
+            {(Object.keys(TUTORIALS) as TutorialLang[]).map((l) => (
+              <button
+                key={l}
+                type="button"
+                role="tab"
+                aria-selected={lang === l}
+                onClick={() => pick(l)}
+                className={cx(
+                  "rounded-md px-2.5 py-1 transition",
+                  lang === l ? "grad-bg text-on-accent shadow" : "text-muted hover:text-fg",
+                )}
+              >
+                {TUTORIALS[l].label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="space-y-3 p-4 sm:p-5">
-          <div className="flex items-center gap-3 rounded-xl border border-ok/25 bg-ok/5 p-3">
-            <span className="relative grid size-9 place-items-center rounded-lg bg-ok/15 text-ok">
-              <Bot className="size-5" />
-              <span className="absolute -top-0.5 -right-0.5 size-2.5 animate-ping rounded-full bg-ok" />
-              <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-ok ring-2 ring-card" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold">Autopilot is running</div>
-              <div className="text-xs text-muted">Last run 4 min ago · your PC can be off</div>
-            </div>
-            <span className="rounded-full bg-ok/15 px-2.5 py-0.5 text-[11px] font-bold text-ok">ON</span>
+        <div className="p-2 sm:p-2.5">
+          <iframe
+            key={video.id}
+            className="block aspect-video w-full rounded-xl bg-black"
+            src={`https://www.youtube.com/embed/${video.id}?rel=0`}
+            title={video.title}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
+          />
+        </div>
+        <div className="flex items-center gap-3 border-t border-line px-4 py-3">
+          <span className="relative grid size-8 shrink-0 place-items-center rounded-lg bg-ok/15 text-ok">
+            <Bot className="size-4.5" />
+            <span className="absolute -top-0.5 -right-0.5 size-2 animate-ping rounded-full bg-ok" />
+            <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-ok ring-2 ring-card" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-semibold">From sign-in to Autopilot ON</div>
+            <div className="truncate text-xs text-muted">Every click, step by step · about 10 minutes, once</div>
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            {[
-              ["96", "Queued"],
-              ["3 / day", "Slots"],
-              ["32 days", "Planned"],
-            ].map(([v, l]) => (
-              <div key={l} className="rounded-xl border border-line bg-bg-soft px-2 py-2.5">
-                <div className="text-base font-extrabold">{v}</div>
-                <div className="text-[10px] text-muted">{l}</div>
-              </div>
-            ))}
-          </div>
-          <ul className="divide-y divide-line rounded-xl border border-line">
-            {rows.map((r) => (
-              <li key={r.title} className="flex items-center gap-3 px-3 py-2.5">
-                <span className={cx("grid size-7 shrink-0 place-items-center rounded-lg", r.kind === "short" ? "bg-accent-2/15 text-accent-2" : "bg-accent-soft text-accent")}>
-                  {r.kind === "short" ? <Smartphone className="size-3.5" /> : <Clapperboard className="size-3.5" />}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-xs font-medium">{r.title}</div>
-                  <div className="text-[10px] text-faint">{r.t}</div>
-                </div>
-                <span className={cx("rounded-full px-2 py-0.5 text-[10px] font-semibold", r.state === "Scheduled" ? "bg-accent-2/15 text-accent-2" : "bg-info/10 text-info")}>{r.state}</span>
-              </li>
-            ))}
-          </ul>
         </div>
       </div>
 
       {/* Floating Short preview */}
-      <div className="animate-float absolute -top-10 -right-3 hidden w-24 sm:block lg:-right-14 xl:-right-20">
+      {/* Sits fully outside the frame, so only shown where the page has side room. */}
+      <div className="animate-float absolute -top-14 -right-[5.5rem] hidden w-20 xl:block 2xl:-right-28 2xl:w-24">
         <div className="relative aspect-[9/16] overflow-hidden rounded-2xl border-4 border-card bg-gradient-to-br from-[#6ee7b7] via-accent to-accent-2 shadow-2xl shadow-black/40">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,.35),transparent_45%)]" />
           <div className="absolute inset-0 grid place-items-center">
@@ -167,11 +191,21 @@ function HeroVisual() {
       </div>
 
       {/* Floating toast */}
-      <div className="animate-float-slow absolute -bottom-6 -left-3 flex items-center gap-3 rounded-xl border border-line bg-card px-4 py-3 shadow-2xl shadow-black/30 sm:-left-8">
-        <CheckCircle2 className="size-5 text-ok" />
-        <div>
-          <div className="text-xs font-semibold">Published on YouTube</div>
-          <div className="text-[10px] text-muted">Today, 8:00 AM · while you slept</div>
+      {/* Status cards just below the frame, so they never cover the caption row. */}
+      <div className="absolute inset-x-0 top-full mt-4 grid grid-cols-2 gap-3">
+        <div className="flex min-w-0 items-center gap-3 rounded-xl border border-line bg-card px-4 py-3 shadow-2xl shadow-black/30">
+          <CheckCircle2 className="size-5 shrink-0 text-ok" />
+          <div className="min-w-0">
+            <div className="truncate text-xs font-semibold">Published on YouTube</div>
+            <div className="truncate text-[10px] text-muted">Today, 8:00 AM · while you slept</div>
+          </div>
+        </div>
+        <div className="flex min-w-0 items-center gap-3 rounded-xl border border-line bg-card px-4 py-3 shadow-2xl shadow-black/30">
+          <CalendarClock className="size-5 shrink-0 text-accent" />
+          <div className="min-w-0">
+            <div className="truncate text-xs font-semibold">Next upload scheduled</div>
+            <div className="truncate text-[10px] text-muted">Today, 1:00 PM · Autopilot ON</div>
+          </div>
         </div>
       </div>
     </div>
@@ -429,6 +463,7 @@ export default function Home() {
               </li>
             ))}
           </ol>
+
         </div>
       </section>
 

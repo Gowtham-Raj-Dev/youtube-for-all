@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { ArrowUpRight, Box, Download, Film, Gamepad2, Images, Link2, Menu, Smartphone, X } from "lucide-react";
+import { ArrowUpRight, Box, Download, Film, Gamepad2, Globe, Images, Link2, Menu, Smartphone, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { HeartButton } from "./HeartButton";
 import { Logo, ThemeToggle } from "./Layout";
@@ -8,14 +8,16 @@ import { Button, cx } from "./ui";
 
 export const CODELOVE = "https://codelove.in";
 
+/** Every other site in the CodeLove network, main site first. */
 export const PLATFORMS = [
-  { name: "Downloader", text: "Save videos & photos from social media", href: "https://downloader.codelove.in", icon: Download },
+  { name: "CodeLove", text: "Free tools, games & guides — the main site", href: CODELOVE, icon: Globe },
+  { name: "Free 3D Models", text: "Free 3D models to download", href: "https://models.codelove.in", icon: Box },
+  { name: "Free 3D Games", text: "Free 3D games in your browser", href: "https://games.codelove.in", icon: Gamepad2 },
+  { name: "Insta Downloader", text: "Save Instagram Reels, videos & photos", href: "https://downloader.codelove.in", icon: Download },
   { name: "Link in Bio", text: "One link for all your profiles", href: "https://linkinbio.codelove.in", icon: Link2 },
-  { name: "3D Models", text: "Free 3D models to download", href: "https://models.codelove.in", icon: Box },
   { name: "Video to GIF", text: "Turn any clip into a GIF", href: "https://videotogif.codelove.in", icon: Film },
   { name: "Video to Images", text: "Extract frames from videos", href: "https://videotoimages.codelove.in", icon: Images },
-  { name: "Games", text: "Free games in your browser", href: "https://games.codelove.in", icon: Gamepad2 },
-  { name: "Java Games", text: "Old Java phone games, free in your browser", href: "https://javaplay.codelove.in", icon: Smartphone },
+  { name: "Free Java Games", text: "Old Java phone games, free in your browser", href: "https://javaplay.codelove.in", icon: Smartphone },
 ];
 
 export function CodeLoveLogo({ className }: { className?: string }) {
@@ -137,11 +139,11 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-12">
-          <h3 className="text-xs font-semibold tracking-wider text-faint uppercase">More free platforms</h3>
+          <h3 className="text-xs font-semibold tracking-wider text-faint uppercase">CodeLove network</h3>
           {/* Flex, not grid, so a short last row sits centered. */}
           <ul className="mt-4 flex flex-wrap justify-center gap-3">
             {PLATFORMS.map(({ name, text, href, icon: Icon }) => (
-              <li key={name} className="w-full sm:w-[calc((100%-0.75rem)/2)] lg:w-[calc((100%-1.5rem)/3)]">
+              <li key={name} className="w-full sm:w-[calc((100%-0.75rem)/2)] lg:w-[calc((100%-2.25rem)/4)]">
                 <a href={href} target="_blank" rel="noreferrer" className="group flex items-center gap-3 rounded-xl border border-line bg-card p-3 transition hover:-translate-y-0.5 hover:border-accent/40">
                   <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent">
                     <Icon className="size-4.5" />
@@ -164,8 +166,14 @@ export function SiteFooter() {
             <MadeBy />
             <span className="hidden sm:inline">· Not affiliated with YouTube or Google</span>
           </span>
-          <span className="flex items-center gap-2.5 text-xs text-faint">
-            A product of <CodeLoveLogo className="h-7" />
+          <span className="flex flex-col items-center gap-1.5 text-xs text-faint sm:items-end">
+            <span className="flex items-center gap-2.5">
+              A product of <CodeLoveLogo className="h-7" />
+            </span>
+            {/* What CodeLove is, in one line — same text on every CodeLove site. */}
+            <span className="max-w-xs text-center sm:text-right">
+              Free web tools, apps and games for creators, students and developers.
+            </span>
           </span>
         </div>
       </div>

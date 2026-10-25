@@ -131,9 +131,10 @@ export function SiteFooter() {
           <div>
             <h3 className="text-xs font-semibold tracking-wider text-faint uppercase">Legal & help</h3>
             <ul className="mt-4 space-y-2.5 text-sm">
+              <li><Link to="/about" className="text-muted hover:text-fg">About</Link></li>
               <li><Link to="/privacy" className="text-muted hover:text-fg">Privacy</Link></li>
-              <li><a href={`${CODELOVE}/legal/terms`} target="_blank" rel="noreferrer" className="text-muted hover:text-fg">Terms</a></li>
-              <li><a href={`${CODELOVE}/contact`} target="_blank" rel="noreferrer" className="text-muted hover:text-fg">Contact</a></li>
+              <li><Link to="/terms" className="text-muted hover:text-fg">Terms</Link></li>
+              <li><Link to="/contact" className="text-muted hover:text-fg">Contact</Link></li>
             </ul>
           </div>
         </div>

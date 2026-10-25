@@ -25,6 +25,24 @@
       "description": "How UTubeFlow, the free YouTube automation tool by CodeLove, handles your data: no video files, tokens or passwords stored. Delete everything any time.",
       "h1": "Privacy Policy — UTubeFlow",
       "body": "UTubeFlow is a free YouTube automation tool from CodeLove (codelove.in). We never store your video files, Google access tokens, passwords or client secrets. Videos wait in your own Google Drive and upload from your own Google account."
+    },
+    "/terms": {
+      "title": "Terms of Service | UTubeFlow — Free YouTube Automation",
+      "description": "The terms for using UTubeFlow, the free YouTube automation tool by CodeLove: your content, YouTube API Services, fair use, community chat and liability.",
+      "h1": "Terms of Service — UTubeFlow",
+      "body": "UTubeFlow is a free YouTube automation tool from CodeLove. Upload only videos you own or have the rights to, follow the YouTube Terms of Service and Community Guidelines, and use the tool fairly. It is free and provided as is."
+    },
+    "/about": {
+      "title": "About UTubeFlow — Free YouTube Automation by CodeLove",
+      "description": "Why UTubeFlow exists: a free YouTube automation tool that bulk uploads and schedules videos and Shorts using your own free YouTube API quota and Google Drive.",
+      "h1": "About UTubeFlow — free YouTube automation",
+      "body": "UTubeFlow is made by Gowtham at CodeLove. Upload a batch of videos and Shorts once, pick daily time slots, and Autopilot posts them from your own Google account — no plans, no payments, no credit card."
+    },
+    "/contact": {
+      "title": "Contact UTubeFlow — Free YouTube Automation Support",
+      "description": "Contact the UTubeFlow team for help with scheduled uploads, bugs, feature ideas, data deletion or copyright and abuse reports. Email support@codelove.in.",
+      "h1": "Contact UTubeFlow",
+      "body": "Questions, bugs, feature ideas or a failed upload? Email support@codelove.in with your channel name and the video details. Signed-in users can also message the admin from the in-app chat."
     }
   }
 }

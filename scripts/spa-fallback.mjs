@@ -1,5 +1,5 @@
 // Post-build SEO + GitHub Pages fallback.
-// - One static HTML file per public page (index.html, login.html, privacy.html) with its own
+// - One static HTML file per public page (index.html, login.html, privacy.html, terms.html, about.html, contact.html …) with its own
 //   title/description/canonical/og tags and crawlable copy, from src/seo-pages.json.
 //   GitHub Pages serves /privacy from privacy.html, so these get a real 200 instead of the 404 page.
 // - 404.html: copy of the app for deep links like /schedule (client-side routing), marked noindex.

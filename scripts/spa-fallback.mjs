@@ -41,8 +41,8 @@ function render(path, page) {
   html = setMeta(html, "property", "og:url", url);
   html = setMeta(html, "name", "twitter:title", page.title);
   html = setMeta(html, "name", "twitter:description", page.description);
-  // The FAQ structured data belongs to the home page only (that's where the FAQ is).
-  if (path !== "/") html = html.replace(/<!--faq:start-->[\s\S]*?<!--faq:end-->/, "");
+  // The FAQ and the setup-guide videos belong to the home page only (that's where they are).
+  if (path !== "/") html = html.replace(/<!--faq:start-->[\s\S]*?<!--faq:end-->/, "").replace(/<!--videos:start-->[\s\S]*?<!--videos:end-->/, "");
   return html;
 }
 
@@ -58,15 +58,35 @@ const fallback = template
   .replace(/<meta name="robots" content="[^"]*"/, '<meta name="robots" content="noindex, follow"')
   .replace(/\s*<link rel="canonical"[^>]*>/, "")
   .replace(/<!--faq:start-->[\s\S]*?<!--faq:end-->/, "")
+  .replace(/<!--videos:start-->[\s\S]*?<!--videos:end-->/, "")
   .replace(/<!--seo:start-->[\s\S]*?<!--seo:end-->/, "");
 writeFileSync("dist/404.html", fallback);
 
+// The setup guides on the home page, from its VideoObject structured data, so they can show in Google's Videos tab
+const videoBlock = /<!--videos:start--><script type="application\/ld\+json">([\s\S]*?)<\/script><!--videos:end-->/.exec(template)?.[1];
+const homeVideos = videoBlock
+  ? JSON.parse(videoBlock)["@graph"]
+      .map(
+        (v) => `
+    <video:video>
+      <video:thumbnail_loc>${esc(v.thumbnailUrl)}</video:thumbnail_loc>
+      <video:title>${esc(v.name)}</video:title>
+      <video:description>${esc(v.description)}</video:description>
+      <video:player_loc>${esc(v.embedUrl)}</video:player_loc>
+      <video:publication_date>${v.uploadDate}</video:publication_date>
+      <video:tag>CodeLove</video:tag>
+      <video:tag>free YouTube automation</video:tag>
+    </video:video>`,
+      )
+      .join("")
+  : "";
+
 const urls = Object.keys(seo.public)
-  .map((path) => `  <url>\n    <loc>${seo.site}${path}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>`)
+  .map((path) => `  <url>\n    <loc>${seo.site}${path}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>${path === "/" ? homeVideos : ""}\n  </url>`)
   .join("\n");
 writeFileSync(
   "dist/sitemap.xml",
-  `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`,
+  `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">\n${urls}\n</urlset>\n`,
 );
 
 // Without this file GitHub Pages runs Jekyll, which is pointless here and slows deploys.

@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { ArrowUpRight, Box, Download, Film, Gamepad2, Globe, Images, Link2, Menu, Smartphone, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { HeartButton } from "./HeartButton";
+import { ContactLinks } from "./ContactLinks";
 import { Logo, ThemeToggle } from "./Layout";
 import { Button, cx } from "./ui";
 
@@ -41,6 +42,8 @@ export function MadeBy({ className }: { className?: string }) {
       <a href={CODELOVE} target="_blank" rel="noopener noreferrer" className="font-medium text-fg transition hover:text-accent">
         CodeLove
       </a>
+      <span className="text-muted/50">•</span>
+      <ContactLinks className="text-fg" />
     </span>
   );
 }

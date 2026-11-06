@@ -18,6 +18,75 @@ export type CutClip = { file: File; title: string };
 
 type IncomingClip = { name?: unknown; type?: unknown; blob?: unknown; title?: unknown };
 
+const toCutClips = (raw: IncomingClip[]): CutClip[] =>
+  raw
+    .filter((c): c is { name: string; type: string; blob: Blob; title: string } => c.blob instanceof Blob && typeof c.name === "string")
+    .map((c) => ({
+      file: new File([c.blob], c.name.slice(0, 200), { type: typeof c.type === "string" && c.type ? c.type : "video/mp4" }),
+      title: typeof c.title === "string" ? c.title.replace(/[<>]/g, "").slice(0, 100) : "",
+    }));
+
+// Clips that arrived on the other upload page (Shorts vs long videos); the right page picks them up on mount.
+let pendingClips: CutClip[] | null = null;
+export const takePendingVideoCutClips = (): CutClip[] | null => {
+  const p = pendingClips;
+  pendingClips = null;
+  return p;
+};
+
+/**
+ * Second way in: the user opened UTubeFlow from the VideoCut site ("Connect UTubeFlow"), so VideoCut is our
+ * window.opener. We say hello (only to the VideoCut origin), and clips VideoCut sends later land in this list.
+ *   here     → VideoCut: { type: "utubeflow:hello", kind }
+ *   VideoCut → here    : { type: "videocut:linked" }
+ *   VideoCut → here    : { type: "videocut:clips", kind, clips }
+ *   here     → VideoCut: { type: "utubeflow:received", count }
+ * Returns true while linked.
+ */
+export function useVideoCutOpener(kind: "short" | "video", onClips: (clips: CutClip[]) => void, goTo: (kind: "short" | "video") => void) {
+  const [linked, setLinked] = useState(false);
+
+  useEffect(() => {
+    const opener = window.opener as Window | null;
+    if (!opener) return;
+
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== VIDEOCUT_ORIGIN || e.source !== opener) return;
+      const data = e.data as { type?: string; kind?: unknown; clips?: IncomingClip[] };
+      if (data?.type === "videocut:linked") {
+        setLinked(true);
+      } else if (data?.type === "videocut:clips" && Array.isArray(data.clips)) {
+        const clips = toCutClips(data.clips);
+        opener.postMessage({ type: "utubeflow:received", count: clips.length }, VIDEOCUT_ORIGIN);
+        if (!clips.length) return;
+        const target = data.kind === "short" || data.kind === "video" ? data.kind : kind;
+        if (target === kind) {
+          onClips(clips);
+        } else {
+          pendingClips = clips;
+          goTo(target);
+        }
+      }
+    };
+
+    window.addEventListener("message", onMessage);
+    try {
+      opener.postMessage({ type: "utubeflow:hello", kind }, VIDEOCUT_ORIGIN);
+    } catch {
+      /* opener gone or navigated elsewhere: nothing to link */
+    }
+    const closedCheck = window.setInterval(() => {
+      if (opener.closed) setLinked(false);
+    }, 2000);
+    return () => {
+      window.removeEventListener("message", onMessage);
+      window.clearInterval(closedCheck);
+    };
+  }, [kind, onClips, goTo]);
+
+  return linked;
+}
+
 const currentTheme = (): "dark" | "light" => {
   const t = document.documentElement.dataset.theme;
   if (t === "dark" || t === "light") return t;
@@ -57,12 +126,7 @@ export function VideoCutModal({
       }
 
       if (data?.type === "videocut:clips" && Array.isArray(data.clips)) {
-        const clips: CutClip[] = data.clips
-          .filter((c): c is { name: string; type: string; blob: Blob; title: string } => c.blob instanceof Blob && typeof c.name === "string")
-          .map((c) => ({
-            file: new File([c.blob], c.name.slice(0, 200), { type: typeof c.type === "string" && c.type ? c.type : "video/mp4" }),
-            title: typeof c.title === "string" ? c.title.replace(/[<>]/g, "").slice(0, 100) : "",
-          }));
+        const clips = toCutClips(data.clips);
         frame.current?.contentWindow?.postMessage({ type: "utubeflow:received", count: clips.length }, VIDEOCUT_ORIGIN);
         if (clips.length) onClips(clips);
       }

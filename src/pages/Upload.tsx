@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Bot, CalendarClock, Clapperboard, ImagePlus, Plus, Rocket, Scissors, Smartphone, Trash2, UploadCloud } from "lucide-react";
-import { VideoCutModal, type CutClip } from "../components/VideoCutModal";
+import { VideoCutModal, takePendingVideoCutClips, useVideoCutOpener, type CutClip } from "../components/VideoCutModal";
 import { useUser } from "../lib/auth";
 import { useSettings, type Privacy } from "../lib/settings";
 import { newItemId, useItems, type Item, type ItemKind } from "../lib/items";
@@ -271,6 +271,15 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
   );
   const closeCutter = useCallback(() => setCutterOpen(false), []);
 
+  // Opened from the VideoCut site ("Connect UTubeFlow"): clips sent from there land here too.
+  const goToKind = useCallback((k: ItemKind) => navigate(`/upload/${k}`), [navigate]);
+  const videoCutLinked = useVideoCutOpener(kind, onCutClips, goToKind);
+  useEffect(() => {
+    const pending = takePendingVideoCutClips();
+    if (pending) onCutClips(pending);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <>
       <PageHeader
@@ -291,6 +300,14 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
       />
 
       <VideoCutModal open={cutterOpen} kind={kind} onClose={closeCutter} onClips={onCutClips} />
+
+      {videoCutLinked && (
+        <div className="mb-6">
+          <Alert tone="ok" title="Connected to VideoCut">
+            Keep this tab open. Clips you send from VideoCut with <b>Send to UTubeFlow</b> land in this upload list.
+          </Alert>
+        </div>
+      )}
 
       {!ytReady && (
         <div className="mb-6">

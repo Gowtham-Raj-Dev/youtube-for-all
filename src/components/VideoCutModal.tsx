@@ -106,6 +106,16 @@ export function VideoCutModal({
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
+  // VideoCut never said hello (site down, blocked, no HTTPS yet): show a message instead of spinning forever.
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    if (!open || ready) return;
+    setFailed(false);
+    const t = window.setTimeout(() => setFailed(true), 20000);
+    return () => window.clearTimeout(t);
+  }, [open, ready, attempt]);
 
   const sendInit = useCallback(() => {
     frame.current?.contentWindow?.postMessage({ type: "utubeflow:init", kind, theme: currentTheme() }, VIDEOCUT_ORIGIN);
@@ -168,14 +178,28 @@ export function VideoCutModal({
 
         <div className="relative flex-1">
           {!ready && (
-            <div className="absolute inset-0 grid place-items-center bg-bg">
-              <div className="flex flex-col items-center gap-3 text-sm text-muted">
-                <Spinner />
-                Loading VideoCut…
-              </div>
+            <div className="absolute inset-0 grid place-items-center bg-bg p-6">
+              {failed ? (
+                <div className="flex max-w-sm flex-col items-center gap-3 text-center text-sm text-muted">
+                  <div className="font-semibold text-fg">VideoCut could not load</div>
+                  <div>Check your connection and try again. If it keeps failing, VideoCut may be updating; try again in a few minutes.</div>
+                  <button
+                    onClick={() => setAttempt((a) => a + 1)}
+                    className="mt-1 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 px-4 py-2 font-medium text-white transition hover:opacity-90"
+                  >
+                    Try again
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-3 text-sm text-muted">
+                  <Spinner />
+                  Loading VideoCut…
+                </div>
+              )}
             </div>
           )}
           <iframe
+            key={attempt}
             ref={frame}
             src={src}
             title="VideoCut — cut videos into parts and Shorts"

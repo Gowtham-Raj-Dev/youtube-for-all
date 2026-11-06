@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Bot, CalendarClock, Clapperboard, ImagePlus, Plus, Rocket, Smartphone, Trash2, UploadCloud } from "lucide-react";
+import { Bot, CalendarClock, Clapperboard, ImagePlus, Plus, Rocket, Scissors, Smartphone, Trash2, UploadCloud } from "lucide-react";
+import { VideoCutModal, type CutClip } from "../components/VideoCutModal";
 import { useUser } from "../lib/auth";
 import { useSettings, type Privacy } from "../lib/settings";
 import { newItemId, useItems, type Item, type ItemKind } from "../lib/items";
@@ -66,6 +67,7 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
   const [custom, setCustom] = useState(() => toLocalInput(Date.now() + 3600_000));
   const [dragOver, setDragOver] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [cutterOpen, setCutterOpen] = useState(false);
   const submitting = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -136,11 +138,17 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
     if (!isShort && info.height > info.width && info.duration <= 180) shortWarnings.push("This looks like a Short (vertical, under 3 min). YouTube will treat it as a Short.");
   }
 
-  const addFiles = async (list: FileList | File[] | null | undefined) => {
-    const files = [...(list ?? [])].filter(isVideo);
+  const addFiles = async (list: FileList | File[] | null | undefined, titles?: string[]) => {
+    const all = [...(list ?? [])];
+    const files = all.filter(isVideo);
     if (!files.length) return toast("error", "Choose video files (MP4, MOV, WebM…).");
     touched.current = true;
-    const added: Entry[] = files.map((f) => ({ key: newItemId(), file: f, title: titleFromName(f.name), info: null }));
+    const added: Entry[] = files.map((f) => ({
+      key: newItemId(),
+      file: f,
+      title: titles?.[all.indexOf(f)]?.trim() || titleFromName(f.name),
+      info: null,
+    }));
     setEntries((e) => [...e, ...added]);
     // Read duration/size in the background (small files first is not needed — order is kept).
     for (const a of added) {
@@ -248,19 +256,41 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
 
   const busy = starting;
 
+  // Clips cut in VideoCut arrive here, ready to schedule like any picked files.
+  const onCutClips = useCallback(
+    (clips: CutClip[]) => {
+      setCutterOpen(false);
+      addFiles(
+        clips.map((c) => c.file),
+        clips.map((c) => c.title),
+      );
+      toast("ok", `${clips.length} clip${clips.length > 1 ? "s" : ""} from VideoCut added. Check the titles, then ${viaAutopilot ? "add them to Autopilot" : "upload & schedule"}.`);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [viaAutopilot],
+  );
+  const closeCutter = useCallback(() => setCutterOpen(false), []);
+
   return (
     <>
       <PageHeader
         title={isShort ? "Upload Shorts" : "Upload Videos"}
         subtitle={isShort ? "Vertical 9:16, up to 3 minutes. Select one or many." : "Long videos. Select one or many."}
         action={
-          <Link to={isShort ? "/upload/video" : "/upload/short"}>
-            <Button variant="ghost" icon={isShort ? <Clapperboard className="size-4" /> : <Smartphone className="size-4" />}>
-              {isShort ? "Long videos instead" : "Shorts instead"}
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" icon={<Scissors className="size-4" />} onClick={() => setCutterOpen(true)} disabled={busy}>
+              {isShort ? "Cut into Shorts" : "Cut into parts"}
             </Button>
-          </Link>
+            <Link to={isShort ? "/upload/video" : "/upload/short"}>
+              <Button variant="ghost" icon={isShort ? <Clapperboard className="size-4" /> : <Smartphone className="size-4" />}>
+                {isShort ? "Long videos instead" : "Shorts instead"}
+              </Button>
+            </Link>
+          </div>
         }
       />
+
+      <VideoCutModal open={cutterOpen} kind={kind} onClose={closeCutter} onClips={onCutClips} />
 
       {!ytReady && (
         <div className="mb-6">
@@ -296,6 +326,24 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
                 <div className="font-semibold">Drop your {isShort ? "Shorts" : "videos"} here</div>
                 <div className="mt-1 text-sm text-muted">or click to choose · one or many at once</div>
               </button>
+            ) : null}
+            {entries.length === 0 ? (
+              <div className="mx-4 mb-4 flex flex-col items-start gap-3 rounded-xl border border-line bg-bg-soft p-3.5 sm:flex-row sm:items-center">
+                <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 text-white">
+                  <Scissors className="size-4" />
+                </div>
+                <div className="min-w-0 flex-1 text-sm">
+                  <div className="font-medium">Have one long video?</div>
+                  <div className="text-xs text-muted">
+                    {isShort
+                      ? "Cut it into 30-second 9:16 Shorts with a blurred background in VideoCut. The clips come straight into this list."
+                      : "Split it into equal parts in VideoCut. The parts come straight into this list."}
+                  </div>
+                </div>
+                <Button size="sm" variant="primary" icon={<Scissors className="size-4" />} onClick={() => setCutterOpen(true)}>
+                  Open VideoCut
+                </Button>
+              </div>
             ) : single ? (
               <div className="flex flex-col gap-4 p-4 sm:flex-row">
                 <video src={single.info?.url} controls className={cx("rounded-xl bg-black object-contain", isShort ? "aspect-[9/16] w-full sm:w-44" : "aspect-video w-full sm:w-72")} />

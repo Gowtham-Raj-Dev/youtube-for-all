@@ -28,7 +28,7 @@
     },
     "/terms": {
       "title": "Terms of Service | UTubeFlow — Free YouTube Automation",
-      "description": "The terms for using UTubeFlow, the free YouTube automation tool by CodeLove: your content, YouTube API Services, fair use, community chat and liability.",
+      "description": "The terms for using UTubeFlow, the free YouTube automation tool by CodeLove: your content, YouTube API Services, fair use and liability.",
       "h1": "Terms of Service — UTubeFlow",
       "body": "UTubeFlow is a free YouTube automation tool from CodeLove. Upload only videos you own or have the rights to, follow the YouTube Terms of Service and Community Guidelines, and use the tool fairly. It is free and provided as is."
     },
@@ -42,7 +42,7 @@
       "title": "Contact UTubeFlow — Free YouTube Automation Support",
       "description": "Contact the UTubeFlow team for help with scheduled uploads, bugs, feature ideas, data deletion or copyright and abuse reports. Email support@codelove.in.",
       "h1": "Contact UTubeFlow",
-      "body": "Questions, bugs, feature ideas or a failed upload? Email support@codelove.in with your channel name and the video details. Signed-in users can also message the admin from the in-app chat."
+      "body": "Questions, bugs, feature ideas or a failed upload? Email support@codelove.in with your channel name and the video details."
     }
   }
 }

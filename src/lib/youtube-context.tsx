@@ -57,8 +57,7 @@ export function YouTubeProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(id);
   }, [tick]);
 
-  // The channel summary also lives on users/{uid}: the chat rules check it (only connected
-  // channels can post) and the admin dashboard lists it.
+  // The channel summary also lives on users/{uid}: the admin dashboard lists it.
   // A public copy in channels/{uid} feeds the /channels directory (free promotion for creators).
   const syncChannel = useCallback(
     (c: Channel | null) => {

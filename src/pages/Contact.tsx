@@ -16,7 +16,6 @@ export default function Contact() {
             <b>Email:</b>{" "}
             <a href={`mailto:${EMAIL}`} className="text-fg underline underline-offset-4">{EMAIL}</a> — please mention {APP_NAME}, your channel name and, for a failed upload, the video title and the time it was scheduled.
           </p>
-          <p><b>In the app:</b> signed-in users can message the admin directly from the chat. Private messages are kept so we can follow up.</p>
           <p><b>Data and privacy:</b> to delete your data, use Settings → “Delete all my data”, or email us. The <Link to="/privacy" className="text-fg underline underline-offset-4">Privacy Policy</Link> explains what we store.</p>
           <p><b>Copyright or abuse:</b> if someone is using {APP_NAME} to upload your work or to spam, email us with the YouTube links and we will act quickly.</p>
           <p>We usually reply within 1–2 days. {APP_NAME} is part of CodeLove — codelove.in.</p>

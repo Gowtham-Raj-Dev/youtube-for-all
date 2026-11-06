@@ -26,7 +26,7 @@ export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
 
 export async function signOut() {
   sessionStorage.clear();
-  // Drop out of the chat's "online" list right away instead of after the timeout.
+  // Drop out of the admin's "online" list right away instead of after the timeout.
   if (auth.currentUser) await deleteDoc(doc(db, "presence", auth.currentUser.uid)).catch(() => {});
   await fbSignOut(auth);
 }

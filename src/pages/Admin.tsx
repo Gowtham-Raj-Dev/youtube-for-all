@@ -13,7 +13,6 @@ import {
   Crown,
   Download,
   ListVideo,
-  MessageCircle,
   Search,
   Smartphone,
   Trophy,
@@ -22,10 +21,9 @@ import {
 } from "lucide-react";
 import { db } from "../lib/firebase";
 import { useUser } from "../lib/auth";
-import { isAdminUser, useOnline, useThreads } from "../lib/community";
+import { isAdminUser, useOnline } from "../lib/community";
 import { STATUS_LABEL, type Item } from "../lib/items";
 import { fmtCount, fmtRelative } from "../lib/schedule";
-import { useChat } from "../components/Chat";
 import { Card, cx, Segmented, Spinner, StatusBadge } from "../components/ui";
 
 type UserDoc = {
@@ -245,8 +243,6 @@ function Leaderboard({ rows }: { rows: Row[] }) {
 }
 
 function UserDetail({ row }: { row: Row }) {
-  const chat = useChat();
-  const me = useUser();
   const items = [...row.items].sort((a, b) => (b.uploadedAt ?? b.updatedAt) - (a.uploadedAt ?? a.updatedAt));
   return (
     <div className="border-t border-line bg-bg-soft/60 p-4 sm:p-5">
@@ -295,18 +291,6 @@ function UserDetail({ row }: { row: Row }) {
                 </div>
               ))}
             </dl>
-            {row.uid === me.uid ? (
-              <div className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line text-sm text-faint">
-                <MessageCircle className="size-4" /> This is you
-              </div>
-            ) : (
-              <button
-                onClick={() => chat.openThread(row.uid, { name: row.name, email: row.email, photo: row.photo, channel: row.channel?.title ?? null })}
-                className="grad-bg mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold shadow-lg shadow-accent/25 transition hover:brightness-110"
-              >
-                <MessageCircle className="size-4" /> Message privately
-              </button>
-            )}
           </div>
         </div>
 
@@ -379,8 +363,6 @@ export default function Admin() {
 function AdminDashboard() {
   const { users, items, error } = useAdminData();
   const online = useOnline();
-  const threads = useThreads(true);
-  const chat = useChat();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [sort, setSort] = useState<Sort>("success");
@@ -454,7 +436,6 @@ function AdminDashboard() {
   const channels = rows.filter((r) => r.channel).length;
   const autopilots = rows.filter((r) => r.autopilot).length;
   const active7 = rows.filter((r) => r.online || (r.lastLogin && Date.now() - r.lastLogin < 7 * 86400_000)).length;
-  const unread = threads.reduce((n, t) => n + t.unreadAdmin, 0);
 
   return (
     <div className="space-y-6">
@@ -484,20 +465,6 @@ function AdminDashboard() {
                 <div className="text-[11px] text-ok">online now</div>
               </div>
             </div>
-            <button
-              onClick={() => {
-                chat.setTab("direct");
-                chat.openThread(null);
-                if (!chat.docked) chat.setOpen(true);
-              }}
-              className="flex items-center gap-3 rounded-2xl border border-line bg-card/80 px-4 py-3 text-left transition hover:border-accent/40"
-            >
-              <MessageCircle className="size-6 text-accent" />
-              <div>
-                <div className="text-2xl leading-none font-extrabold tabular-nums">{unread}</div>
-                <div className="text-[11px] text-muted">unread messages</div>
-              </div>
-            </button>
           </div>
         </div>
       </div>

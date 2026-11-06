@@ -30,9 +30,8 @@ import { useAutopilot } from "../lib/autopilot-context";
 import { useUploads } from "../lib/uploads";
 import { useItems } from "../lib/items";
 import { useSettings } from "../lib/settings";
-import { isAdminUser, saveProfile } from "../lib/community";
+import { isAdminUser, saveProfile, usePresenceHeartbeat } from "../lib/community";
 import { cx, Progress } from "./ui";
-import { ChatDock, ChatProvider, useChat } from "./Chat";
 
 type NavItem = { to: string; label: string; short: string; icon: typeof Home; badge?: boolean };
 
@@ -184,9 +183,8 @@ function UserMenu() {
 
 function UploadsDock() {
   const { jobs, batches, cancel, stopBatch, dismissBatch } = useUploads();
-  const chat = useChat();
-  // Sit left of the docked chat, or above the chat launcher.
-  const pos = chat.docked ? (chat.collapsed ? "right-20 bottom-6" : "right-[23rem] bottom-6") : "right-4 bottom-36 lg:bottom-22";
+  // Bottom-right, above the mobile bottom nav.
+  const pos = "right-4 bottom-20 lg:right-6 lg:bottom-6";
   const [min, setMin] = useState(false);
   const inBatch = new Set(batches.map((b) => b.currentItemId).filter(Boolean));
   const loose = Object.values(jobs).filter((j) => !inBatch.has(j.itemId));
@@ -301,16 +299,10 @@ function UploadsDock() {
 }
 
 export default function Layout() {
-  return (
-    <ChatProvider>
-      <Shell />
-    </ChatProvider>
-  );
-}
-
-function Shell() {
   const user = useUser();
-  const chat = useChat();
+  const yt = useYouTube();
+  // Keeps the admin dashboard's "online now" count working.
+  usePresenceHeartbeat(user, yt.channel?.title ?? null);
   useEffect(() => {
     saveProfile(user);
   }, [user]);
@@ -392,7 +384,7 @@ function Shell() {
   );
 
   return (
-    <div className={cx("min-h-dvh transition-[padding] duration-300 ease-[cubic-bezier(.2,.8,.2,1)] lg:pl-68", chat.docked && (chat.collapsed ? "pr-16" : "pr-88"))}>
+    <div className="min-h-dvh lg:pl-68">
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-68 flex-col border-r border-line bg-bg-soft p-4 lg:flex">{sidebar}</aside>
 
@@ -448,7 +440,6 @@ function Shell() {
       </nav>
 
       <UploadsDock />
-      <ChatDock />
     </div>
   );
 }

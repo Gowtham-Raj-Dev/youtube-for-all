@@ -173,7 +173,7 @@ select {
 .animate-blob { animation: blob 18s ease-in-out infinite; }
 .fade-up { animation: fade-up .7s cubic-bezier(.2, .7, .2, 1) both; }
 
-/* Chat overlay: backdrop fades, panel slides in from the right. */
+/* Overlays: backdrop fades, panel slides in from the right. */
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slide-in-right { from { transform: translateX(100%); } to { transform: none; } }
 .animate-fade-in { animation: fade-in .25s ease-out both; }
@@ -210,7 +210,7 @@ select {
 ::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
 ::-webkit-scrollbar-corner { background: transparent; }
 
-/* Chat and other inner panels: thinner still. */
+/* Inner panels: thinner still. */
 .thin-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
 .thin-scroll::-webkit-scrollbar-thumb { border-width: 1px; }
 
@@ -218,7 +218,7 @@ select {
   .thin-scroll { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--accent) 35%, var(--border)) transparent; }
 }
 
-/* The page itself scrolls without a visible bar (it sat beside the docked chat at the right edge).
+/* The page itself scrolls without a visible bar.
    Wheel, touch, keys and trackpad still scroll it; inner panels keep their slim bars. */
 html { scrollbar-width: none; }
 html::-webkit-scrollbar { display: none; }

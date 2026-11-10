@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Bot, CalendarClock, Clapperboard, ImagePlus, Plus, Rocket, Scissors, Smartphone, Trash2, UploadCloud } from "lucide-react";
+import { Bot, CalendarClock, Clapperboard, ImagePlus, ListVideo, Plus, Rocket, Scissors, Smartphone, Trash2, UploadCloud } from "lucide-react";
 import { VideoCutModal, takePendingVideoCutClips, useVideoCutOpener, type CutClip } from "../components/VideoCutModal";
+import { takeStudioClips } from "./Cut";
 import { useUser } from "../lib/auth";
 import { useSettings, type Privacy } from "../lib/settings";
-import { newItemId, useItems, type Item, type ItemKind } from "../lib/items";
-import { useUploads } from "../lib/uploads";
+import { newItemId, saveItem, useItems, type Item, type ItemKind } from "../lib/items";
+import { rememberMemoryFile, useUploads } from "../lib/uploads";
 import { useYouTube } from "../lib/youtube-context";
 import { useAutopilot } from "../lib/autopilot-context";
 import { parseTags, tagsLength } from "../lib/meta";
@@ -17,7 +18,7 @@ import { CATEGORY_OPTIONS, PRIVACY_OPTIONS } from "../components/options";
 type Mode = "now" | "schedule";
 type When = "slot" | "custom";
 type VideoInfo = { duration: number; width: number; height: number; url: string };
-type Entry = { key: string; file: File; title: string; info: VideoInfo | null };
+type Entry = { key: string; file: File; title: string; description: string; info: VideoInfo | null; showDesc?: boolean };
 
 function readVideoInfo(file: File): Promise<VideoInfo> {
   return new Promise((resolve) => {
@@ -138,16 +139,22 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
     if (!isShort && info.height > info.width && info.duration <= 180) shortWarnings.push("This looks like a Short (vertical, under 3 min). YouTube will treat it as a Short.");
   }
 
-  const addFiles = async (list: FileList | File[] | null | undefined, titles?: string[]) => {
+  const addFiles = async (
+    list: FileList | File[] | null | undefined,
+    titles?: string[],
+    descriptions?: string[]
+  ) => {
     const all = [...(list ?? [])];
     const files = all.filter(isVideo);
     if (!files.length) return toast("error", "Choose video files (MP4, MOV, WebM…).");
     touched.current = true;
-    const added: Entry[] = files.map((f) => ({
+    const added: Entry[] = files.map((f, i) => ({
       key: newItemId(),
       file: f,
-      title: titles?.[all.indexOf(f)]?.trim() || titleFromName(f.name),
+      title: titles?.[i]?.trim() || titleFromName(f.name),
+      description: descriptions?.[i]?.trim() || "",
       info: null,
+      showDesc: false,
     }));
     setEntries((e) => [...e, ...added]);
     // Read duration/size in the background (small files first is not needed — order is kept).
@@ -181,17 +188,63 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
     touched.current = false;
   };
 
-  const baseFor = (e: Entry, publishAt: number | null) => ({
-    kind,
-    title: e.title.trim(),
-    description: fullDescription(e.title),
-    tags: tagList,
-    categoryId,
-    privacy,
-    madeForKids,
-    notifySubscribers: notify,
-    publishAt,
-  });
+  const baseFor = (e: Entry, publishAt: number | null) => {
+    let d = e.description?.trim() || description.trim();
+    if (settings.defaults.descriptionFooter.trim()) d = `${d}\n\n${settings.defaults.descriptionFooter.trim()}`.trim();
+    if (isShort && settings.defaults.addShortsTag && !/#shorts\b/i.test(`${e.title} ${d}`)) d = `${d}\n\n#Shorts`.trim();
+    return {
+      kind,
+      title: e.title.trim(),
+      description: d,
+      tags: tagList,
+      categoryId,
+      privacy,
+      madeForKids,
+      notifySubscribers: notify,
+      publishAt,
+    };
+  };
+
+  const saveToReadyToPost = async () => {
+    if (!entries.length) return;
+    setStarting(true);
+    try {
+      const now = Date.now();
+      const publishTimes = times;
+      for (let i = 0; i < entries.length; i++) {
+        const e = entries[i];
+        const id = newItemId();
+        const base = baseFor(e, publishTimes[i] ?? null);
+        const item: Item = {
+          ...base,
+          id,
+          status: "draft",
+          youtubeId: null,
+          file: {
+            name: e.file.name,
+            size: e.file.size,
+            type: e.file.type,
+            storage: "drive",
+            path: "",
+          },
+          thumb: null,
+          error: null,
+          createdAt: now + i,
+          updatedAt: now,
+          uploadedAt: null,
+        };
+        rememberMemoryFile(id, e.file, thumb);
+        await saveItem(user.uid, item);
+      }
+      reset();
+      toast("ok", `Saved ${entries.length} video${entries.length > 1 ? "s" : ""} to Ready to Post!`);
+      navigate("/queue?tab=ready");
+    } catch (err: any) {
+      toast("error", err.message);
+    } finally {
+      setStarting(false);
+    }
+  };
 
   const submit = async () => {
     // One submit at a time: a second click (e.g. while the network is slow) must not start another upload.
@@ -263,8 +316,9 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
       addFiles(
         clips.map((c) => c.file),
         clips.map((c) => c.title),
+        clips.map((c) => c.description || ""),
       );
-      toast("ok", `${clips.length} clip${clips.length > 1 ? "s" : ""} from VideoCut added. Check the titles, then ${viaAutopilot ? "add them to Autopilot" : "upload & schedule"}.`);
+      toast("ok", `${clips.length} clip${clips.length > 1 ? "s" : ""} from VideoCut added with titles & descriptions.`);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [viaAutopilot],
@@ -277,6 +331,8 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
   useEffect(() => {
     const pending = takePendingVideoCutClips();
     if (pending) onCutClips(pending);
+    const studio = takeStudioClips();
+    if (studio) onCutClips(studio);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -396,27 +452,52 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
                 />
                 <ul className="max-h-[32rem] divide-y divide-line overflow-y-auto">
                   {entries.map((e, i) => (
-                    <li key={e.key} className="flex items-center gap-3 px-4 py-2.5">
-                      <span className="w-6 shrink-0 text-right text-xs tabular-nums text-faint">{i + 1}</span>
-                      <div className="min-w-0 flex-1">
-                        <Input
-                          value={e.title}
-                          maxLength={100}
-                          disabled={busy}
-                          onChange={(ev) => setEntries((all) => all.map((x) => (x.key === e.key ? { ...x, title: ev.target.value } : x)))}
-                          className="py-1.5"
-                        />
-                        <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-muted">
-                          <span className="truncate">{e.file.name}</span>
-                          <span>{fmtBytes(e.file.size)}</span>
-                          {e.info?.duration ? <span>{fmtDuration(e.info.duration)}</span> : null}
-                          {isShort && e.info?.width && (e.info.width > e.info.height || e.info.duration > 180) ? <span className="text-warn">not Short-shaped</span> : null}
+                    <li key={e.key} className="p-3.5 space-y-2">
+                      <div className="flex items-center gap-3">
+                        <span className="w-6 shrink-0 text-right text-xs tabular-nums text-faint">{i + 1}</span>
+                        <div className="min-w-0 flex-1">
+                          <Input
+                            value={e.title}
+                            maxLength={100}
+                            disabled={busy}
+                            placeholder="Clip title"
+                            onChange={(ev) => setEntries((all) => all.map((x) => (x.key === e.key ? { ...x, title: ev.target.value } : x)))}
+                            className="py-1.5"
+                          />
                         </div>
+                        {times[i] && <span className="hidden w-28 shrink-0 text-right text-xs text-muted sm:block">{fmtDateTime(times[i]!)}</span>}
+                        <button
+                          type="button"
+                          onClick={() => setEntries((all) => all.map((x) => (x.key === e.key ? { ...x, showDesc: !x.showDesc } : x)))}
+                          className={cx("text-xs px-2.5 py-1 rounded-lg border transition font-medium", e.showDesc || e.description ? "border-accent text-accent bg-accent-soft" : "border-line text-muted hover:text-fg")}
+                          title="Edit description for this clip"
+                        >
+                          Desc {e.description ? "●" : ""}
+                        </button>
+                        <button onClick={() => removeEntry(e.key)} disabled={busy} className="text-faint hover:text-danger">
+                          <Trash2 className="size-4" />
+                        </button>
                       </div>
-                      {times[i] && <span className="hidden w-32 shrink-0 text-right text-xs text-muted sm:block">{fmtDateTime(times[i]!)}</span>}
-                      <button onClick={() => removeEntry(e.key)} disabled={busy} className="text-faint hover:text-danger">
-                        <Trash2 className="size-4" />
-                      </button>
+
+                      <div className="pl-9 flex flex-wrap gap-x-3 text-[11px] text-muted">
+                        <span className="truncate">{e.file.name}</span>
+                        <span>{fmtBytes(e.file.size)}</span>
+                        {e.info?.duration ? <span>{fmtDuration(e.info.duration)}</span> : null}
+                        {isShort && e.info?.width && (e.info.width > e.info.height || e.info.duration > 180) ? <span className="text-warn">not Short-shaped</span> : null}
+                      </div>
+
+                      {(e.showDesc || (e.description && e.description.length > 0)) && (
+                        <div className="pl-9 pt-1">
+                          <Textarea
+                            rows={2}
+                            value={e.description}
+                            disabled={busy}
+                            placeholder="Specific description for this clip (optional, falls back to details below)..."
+                            onChange={(ev) => setEntries((all) => all.map((x) => (x.key === e.key ? { ...x, description: ev.target.value } : x)))}
+                            className="text-xs"
+                          />
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -557,23 +638,37 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
                 </ul>
               )}
 
-              <Button
-                variant="primary"
-                size="lg"
-                className="w-full"
-                disabled={!!problems.length}
-                loading={busy}
-                onClick={submit}
-                icon={mode === "now" ? <Rocket className="size-4.5" /> : direct ? <CalendarClock className="size-4.5" /> : <Bot className="size-4.5" />}
-              >
-                {starting
-                  ? "Starting…"
-                  : mode === "now"
-                  ? `Upload now${bulk ? ` (${entries.length})` : ""}`
-                  : direct
-                    ? `Upload & schedule${bulk ? ` (${entries.length})` : ""}`
-                    : `Add to Autopilot${bulk ? ` (${entries.length})` : ""}`}
-              </Button>
+              <div className="space-y-2.5">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  className="w-full"
+                  disabled={!!problems.length}
+                  loading={busy}
+                  onClick={submit}
+                  icon={mode === "now" ? <Rocket className="size-4.5" /> : direct ? <CalendarClock className="size-4.5" /> : <Bot className="size-4.5" />}
+                >
+                  {starting
+                    ? "Starting…"
+                    : mode === "now"
+                    ? `Upload now${bulk ? ` (${entries.length})` : ""}`
+                    : direct
+                      ? `Upload & schedule${bulk ? ` (${entries.length})` : ""}`
+                      : `Add to Autopilot${bulk ? ` (${entries.length})` : ""}`}
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  className="w-full"
+                  disabled={entries.length === 0 || busy}
+                  onClick={saveToReadyToPost}
+                  icon={<ListVideo className="size-4.5" />}
+                  title="Save clips to Ready to Post tab without immediately scheduling"
+                >
+                  Save to Ready to Post{entries.length > 0 ? ` (${entries.length})` : ""}
+                </Button>
+              </div>
             </div>
           </Card>
         </div>

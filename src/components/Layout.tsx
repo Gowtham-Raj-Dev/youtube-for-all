@@ -17,6 +17,7 @@ import {
   Menu,
   Crown,
   Moon,
+  Scissors,
   Settings as SettingsIcon,
   Smartphone,
   Sun,
@@ -40,6 +41,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: "Create",
     items: [
+      { to: "/cut", label: "VideoCut", short: "Cut", icon: Scissors },
       { to: "/upload/short", label: "Upload Shorts", short: "Shorts", icon: Smartphone },
       { to: "/upload/video", label: "Upload Videos", short: "Videos", icon: Clapperboard },
     ],

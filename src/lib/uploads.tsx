@@ -309,3 +309,5 @@ export function useUploads() {
 }
 
 export const hasMemoryFile = (id: string) => memoryFiles.has(id);
+export const rememberMemoryFile = (id: string, video: Blob, thumb?: Blob | null) => memoryFiles.set(id, { video, thumb });
+export const getMemoryFile = (id: string) => memoryFiles.get(id);

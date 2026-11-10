@@ -14,17 +14,29 @@ import { Spinner } from "./ui";
 export const VIDEOCUT_URL: string = import.meta.env.VITE_VIDEOCUT_URL || "https://videocut.codelove.in";
 const VIDEOCUT_ORIGIN = new URL(VIDEOCUT_URL).origin;
 
-export type CutClip = { file: File; title: string };
+export type CutClip = { file: File; title: string; description?: string };
 
-type IncomingClip = { name?: unknown; type?: unknown; blob?: unknown; title?: unknown };
+type IncomingClip = { name?: unknown; type?: unknown; blob?: unknown; title?: unknown; description?: string };
 
 const toCutClips = (raw: IncomingClip[]): CutClip[] =>
   raw
-    .filter((c): c is { name: string; type: string; blob: Blob; title: string } => c.blob instanceof Blob && typeof c.name === "string")
+    .filter((c): c is { name: string; type: string; blob: Blob; title: string; description?: string } => c.blob instanceof Blob && typeof c.name === "string")
     .map((c) => ({
       file: new File([c.blob], c.name.slice(0, 200), { type: typeof c.type === "string" && c.type ? c.type : "video/mp4" }),
       title: typeof c.title === "string" ? c.title.replace(/[<>]/g, "").slice(0, 100) : "",
+      description: typeof c.description === "string" ? c.description.slice(0, 5000) : "",
     }));
+
+const isAllowedVideoCutOrigin = (origin: string) => {
+  return (
+    origin === VIDEOCUT_ORIGIN ||
+    origin.includes("videocut.codelove.in") ||
+    origin.includes("localhost:3000") ||
+    origin.includes("localhost:3001") ||
+    origin.includes("127.0.0.1:3000") ||
+    origin.includes("127.0.0.1:3001")
+  );
+};
 
 // Clips that arrived on the other upload page (Shorts vs long videos); the right page picks them up on mount.
 let pendingClips: CutClip[] | null = null;
@@ -113,20 +125,36 @@ export function VideoCutModal({
   useEffect(() => {
     if (!open || ready) return;
     setFailed(false);
-    const t = window.setTimeout(() => setFailed(true), 20000);
+    const t = window.setTimeout(() => setFailed(true), 12000);
     return () => window.clearTimeout(t);
   }, [open, ready, attempt]);
 
   const sendInit = useCallback(() => {
-    frame.current?.contentWindow?.postMessage({ type: "utubeflow:init", kind, theme: currentTheme() }, VIDEOCUT_ORIGIN);
+    const payload = { type: "utubeflow:init", kind, theme: currentTheme() };
+    try {
+      frame.current?.contentWindow?.postMessage(payload, "*");
+    } catch {}
+    try {
+      frame.current?.contentWindow?.postMessage(payload, VIDEOCUT_ORIGIN);
+    } catch {}
   }, [kind]);
+
+  const handleIframeLoad = useCallback(() => {
+    sendInit();
+    // Guarantee that if the iframe loaded (HTTP 200), we don't trap the user in the loading spinner
+    const timer = window.setTimeout(() => {
+      setReady(true);
+      sendInit();
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [sendInit]);
 
   useEffect(() => {
     if (!open) return;
     setReady(false);
 
     const onMessage = (e: MessageEvent) => {
-      if (e.origin !== VIDEOCUT_ORIGIN || e.source !== frame.current?.contentWindow) return;
+      if (!isAllowedVideoCutOrigin(e.origin) || e.source !== frame.current?.contentWindow) return;
       const data = e.data as { type?: string; clips?: IncomingClip[] };
 
       if (data?.type === "videocut:ready") {
@@ -137,7 +165,9 @@ export function VideoCutModal({
 
       if (data?.type === "videocut:clips" && Array.isArray(data.clips)) {
         const clips = toCutClips(data.clips);
-        frame.current?.contentWindow?.postMessage({ type: "utubeflow:received", count: clips.length }, VIDEOCUT_ORIGIN);
+        try {
+          frame.current?.contentWindow?.postMessage({ type: "utubeflow:received", count: clips.length }, e.origin);
+        } catch {}
         if (clips.length) onClips(clips);
       }
     };
@@ -171,6 +201,15 @@ export function VideoCutModal({
               Cut one long video into {kind === "short" ? "9:16 Shorts" : "parts"}, then press <b className="text-fg">Send to UTubeFlow</b>. The clips land in your upload list.
             </div>
           </div>
+          <a
+            href={src}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden sm:inline-flex items-center gap-1.5 text-xs text-muted hover:text-fg px-2.5 py-1.5 rounded-lg border border-line hover:bg-card-hover transition"
+            title="Open in new window"
+          >
+            Open in new tab
+          </a>
           <button onClick={onClose} className="grid size-9 place-items-center rounded-xl text-muted transition hover:bg-card-hover hover:text-fg" aria-label="Close">
             <X className="size-5" />
           </button>
@@ -178,17 +217,27 @@ export function VideoCutModal({
 
         <div className="relative flex-1">
           {!ready && (
-            <div className="absolute inset-0 grid place-items-center bg-bg p-6">
+            <div className="absolute inset-0 grid place-items-center bg-bg p-6 z-10">
               {failed ? (
                 <div className="flex max-w-sm flex-col items-center gap-3 text-center text-sm text-muted">
-                  <div className="font-semibold text-fg">VideoCut could not load</div>
-                  <div>Check your connection and try again. If it keeps failing, VideoCut may be updating; try again in a few minutes.</div>
-                  <button
-                    onClick={() => setAttempt((a) => a + 1)}
-                    className="mt-1 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 px-4 py-2 font-medium text-white transition hover:opacity-90"
-                  >
-                    Try again
-                  </button>
+                  <div className="font-semibold text-fg">VideoCut could not load inside the frame</div>
+                  <div>If cross-origin cookies or network is slow, you can reload or open VideoCut in a new tab.</div>
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => setAttempt((a) => a + 1)}
+                      className="rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 px-4 py-2 font-medium text-white transition hover:opacity-90"
+                    >
+                      Try again
+                    </button>
+                    <a
+                      href={src}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-xl border border-line bg-card px-4 py-2 font-medium text-fg transition hover:bg-card-hover"
+                    >
+                      Open VideoCut directly
+                    </a>
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-3 text-sm text-muted">
@@ -203,7 +252,7 @@ export function VideoCutModal({
             ref={frame}
             src={src}
             title="VideoCut — cut videos into parts and Shorts"
-            onLoad={sendInit}
+            onLoad={handleIframeLoad}
             allow="fullscreen; clipboard-write"
             className="h-full w-full border-0"
           />

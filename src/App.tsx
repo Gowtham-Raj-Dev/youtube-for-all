@@ -11,6 +11,7 @@ import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import CutPage from "./pages/Cut";
 import UploadPage from "./pages/Upload";
 import Queue from "./pages/Queue";
 import Schedule from "./pages/Schedule";
@@ -89,6 +90,7 @@ export default function App() {
             <Route element={<RequireAuth />}>
               <Route element={<Layout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/cut" element={<CutPage />} />
                 <Route path="/upload/video" element={<UploadPage key="video" kind="video" />} />
                 <Route path="/upload/short" element={<UploadPage key="short" kind="short" />} />
                 <Route path="/queue" element={<Queue />} />

@@ -15,13 +15,14 @@ import type { Privacy } from "./settings";
 
 export type ItemKind = "video" | "short";
 /**
- * queued    – file is in the user's Drive; Autopilot uploads it before publishAt
+ * draft     – ready to post; prepared clips/videos waiting to be sent to queue
+ * queued    – file is in the user's Drive or browser memory; Autopilot or user uploads it before publishAt
  * uploading – upload in progress (a browser tab or Autopilot)
  * scheduled – on YouTube as private, YouTube will publish at publishAt
  * uploaded  – on YouTube with its final privacy
  * failed    – last upload attempt failed
  */
-export type ItemStatus = "queued" | "uploading" | "scheduled" | "uploaded" | "failed";
+export type ItemStatus = "draft" | "queued" | "uploading" | "scheduled" | "uploaded" | "failed";
 
 export type StoredFile = {
   name: string;
@@ -92,6 +93,7 @@ export function removeItem(uid: string, id: string) {
 }
 
 export const STATUS_LABEL: Record<ItemStatus, string> = {
+  draft: "Ready to Post",
   queued: "In queue",
   uploading: "Uploading",
   scheduled: "Scheduled",

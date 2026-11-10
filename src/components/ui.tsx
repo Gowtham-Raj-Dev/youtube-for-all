@@ -250,6 +250,7 @@ export function Segmented<T extends string>({ value, onChange, options }: { valu
 }
 
 const STATUS_STYLE: Record<ItemStatus, string> = {
+  draft: "bg-accent-soft text-accent",
   queued: "bg-info/10 text-info",
   uploading: "bg-warn/10 text-warn",
   scheduled: "bg-accent-2/10 text-accent-2",

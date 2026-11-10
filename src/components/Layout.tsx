@@ -49,6 +49,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: "Manage",
     items: [
+      { to: "/ready", label: "Ready to Post", short: "Ready", icon: Clapperboard, badge: true },
       { to: "/queue", label: "Queue", short: "Queue", icon: ListVideo, badge: true },
       { to: "/schedule", label: "Schedule", short: "Schedule", icon: CalendarClock },
     ],
@@ -63,7 +64,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
 ];
 const ADMIN_GROUP: { title: string; items: NavItem[] } = { title: "Owner", items: [{ to: "/admin", label: "Admin", short: "Admin", icon: Crown }] };
 const ALL = [...GROUPS, ADMIN_GROUP].flatMap((g) => g.items);
-const MOBILE_TABS = ["/dashboard", "/upload/short", "/queue", "/schedule", "/settings"].map((to) => ALL.find((n) => n.to === to)!);
+const MOBILE_TABS = ["/dashboard", "/ready", "/queue", "/schedule", "/settings"].map((to) => ALL.find((n) => n.to === to)!);
 
 export function Logo({ className }: { className?: string }) {
   return (
@@ -310,7 +311,9 @@ export default function Layout() {
   }, [user]);
   const { items } = useItems(user.uid);
   const autopilot = useAutopilot();
+  const readyCount = items.filter((i) => i.status === "draft").length;
   const queued = items.filter((i) => i.status === "queued" || i.status === "failed").length;
+  const countFor = (to: string) => (to === "/ready" ? readyCount : to === "/queue" ? queued : 0);
   const [open, setOpen] = useState(false);
   const loc = useLocation();
   useEffect(() => {
@@ -345,7 +348,7 @@ export default function Layout() {
                     {isActive && <span className="grad-bg absolute top-2 bottom-2 left-0 w-1 rounded-r-full" />}
                     <Icon className={cx("size-4.5", isActive && "text-accent")} />
                     <span className="flex-1">{label}</span>
-                    {badge && queued > 0 && <span className="grad-bg rounded-full px-2 py-0.5 text-[11px] font-semibold text-on-accent">{queued}</span>}
+                    {badge && countFor(to) > 0 && <span className="grad-bg rounded-full px-2 py-0.5 text-[11px] font-semibold text-on-accent">{countFor(to)}</span>}
                   </>
                 )}
               </NavLink>
@@ -426,7 +429,7 @@ export default function Layout() {
         </div>
       )}
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-6 pb-28 sm:px-6 lg:px-10 lg:py-8 lg:pb-12">
+      <main className={cx("w-full", loc.pathname === "/cut" ? "p-0 max-w-none" : "mx-auto max-w-6xl px-4 py-6 pb-28 sm:px-6 lg:px-10 lg:py-8 lg:pb-12")}>
         <Outlet />
       </main>
 
@@ -436,7 +439,7 @@ export default function Layout() {
           <NavLink key={to} to={to} className={({ isActive }) => cx("relative flex flex-col items-center gap-1 py-2.5 text-[10px] font-medium", isActive ? "text-accent" : "text-muted")}>
             <Icon className="size-5" />
             {short}
-            {badge && queued > 0 && <span className="grad-bg absolute top-1.5 right-[calc(50%-18px)] rounded-full px-1.5 text-[9px] font-semibold text-on-accent">{queued}</span>}
+            {badge && countFor(to) > 0 && <span className="grad-bg absolute top-1.5 right-[calc(50%-18px)] rounded-full px-1.5 text-[9px] font-semibold text-on-accent">{countFor(to)}</span>}
           </NavLink>
         ))}
       </nav>

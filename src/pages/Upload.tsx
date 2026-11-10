@@ -238,7 +238,7 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
       }
       reset();
       toast("ok", `Saved ${entries.length} video${entries.length > 1 ? "s" : ""} to Ready to Post!`);
-      navigate("/queue?tab=ready");
+      navigate("/ready");
     } catch (err: any) {
       toast("error", err.message);
     } finally {

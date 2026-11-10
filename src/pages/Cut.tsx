@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { ExternalLink, RefreshCw, Smartphone, Video } from "lucide-react";
-import { Button, PageHeader, Segmented, Spinner, useToast } from "../components/ui";
+import { Button, Segmented, Spinner, useToast } from "../components/ui";
 import { VIDEOCUT_URL, type CutClip } from "../components/VideoCutModal";
 
 type Kind = "short" | "video";
@@ -95,50 +95,62 @@ export default function CutPage() {
   }, [kind, navigate, toast, sendInit]);
 
   return (
-    <div className="flex flex-col space-y-4">
-      <PageHeader
-        title="VideoCut Studio"
-        subtitle="Cut long videos into equal parts or 30s 9:16 Shorts with blur background, then send straight to UTubeFlow."
-        action={
+    <div className="flex flex-col w-full min-h-[calc(100dvh-4rem)]">
+      {/* Sleek top control bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 border-b border-line bg-card/60 backdrop-blur shrink-0">
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <Segmented
-              value={kind}
-              onChange={(k) => setKind(k as Kind)}
-              options={[
-                { value: "short", label: "Shorts (9:16)", icon: <Smartphone className="size-3.5" /> },
-                { value: "video", label: "Videos (Parts)", icon: <Video className="size-3.5" /> },
-              ]}
-            />
-            <Button
-              variant="secondary"
-              icon={<RefreshCw className="size-4" />}
-              onClick={() => {
-                setReady(false);
-                setAttempt((a) => a + 1);
-              }}
-              title="Reload VideoCut Studio"
-            >
-              Reload
-            </Button>
-            <a
-              href={src}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl border border-line bg-card hover:bg-card-hover text-muted hover:text-fg transition"
-            >
-              <ExternalLink className="size-3.5" />
-              <span>Full Tab</span>
-            </a>
+            <span className="font-semibold text-sm sm:text-base">VideoCut Studio</span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-accent-soft text-accent">
+              Connected
+            </span>
           </div>
-        }
-      />
+          <div className="hidden sm:block text-xs text-muted truncate">
+            Cut videos into 30s vertical Shorts or equal parts, then send directly to Ready to Post.
+          </div>
+        </div>
 
-      <div className="relative min-h-[82vh] w-full overflow-hidden rounded-2xl border border-line bg-card shadow-sm">
+        <div className="flex items-center gap-2">
+          <Segmented
+            value={kind}
+            onChange={(k) => setKind(k as Kind)}
+            options={[
+              { value: "short", label: "Shorts (9:16)", icon: <Smartphone className="size-3.5" /> },
+              { value: "video", label: "Videos (Parts)", icon: <Video className="size-3.5" /> },
+            ]}
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<RefreshCw className="size-3.5" />}
+            onClick={() => {
+              setReady(false);
+              setAttempt((a) => a + 1);
+            }}
+            title="Reload VideoCut Studio"
+          >
+            Reload
+          </Button>
+          <a
+            href={src}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl border border-line bg-card hover:bg-card-hover text-muted hover:text-fg transition"
+            title="Open in new tab"
+          >
+            <ExternalLink className="size-3.5" />
+            <span className="hidden sm:inline">Direct URL</span>
+          </a>
+        </div>
+      </div>
+
+      {/* Edge-to-edge VideoCut Embed (No extra boxes, no margins) */}
+      <div className="relative flex-1 w-full min-h-[calc(100dvh-8rem)]">
         {!ready && (
           <div className="absolute inset-0 z-10 grid place-items-center bg-bg/95 p-6">
             <div className="flex flex-col items-center gap-3 text-sm text-muted">
               <Spinner />
-              <span>Opening VideoCut Studio…</span>
+              <span>Connecting to VideoCut Studio…</span>
               <a
                 href={src}
                 target="_blank"
@@ -157,8 +169,8 @@ export default function CutPage() {
           src={src}
           title="VideoCut Studio"
           onLoad={handleIframeLoad}
-          allow="fullscreen; clipboard-write"
-          className="h-[84vh] w-full border-0"
+          allow="fullscreen; clipboard-write; display-capture; camera; microphone"
+          className="w-full h-[calc(100dvh-8rem)] min-h-[720px] border-0 block"
         />
       </div>
     </div>

@@ -69,7 +69,7 @@ const MOBILE_TABS = ["/dashboard", "/ready", "/queue", "/schedule", "/settings"]
 export function Logo({ className }: { className?: string }) {
   return (
     <div className={cx("flex items-center gap-2.5", className)}>
-      <img src="favicon.svg" alt="" className="size-9 rounded-xl shadow-lg shadow-accent/30" />
+      <img src="favicon.svg" alt="" width={36} height={36} className="size-9 rounded-xl shadow-lg shadow-accent/30" />
       <span className="text-lg font-extrabold tracking-tight" aria-label={APP_NAME}>
         UTube<span className="grad-text">Flow</span>
       </span>

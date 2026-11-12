@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { ArrowUpRight, Box, Download, Film, Gamepad2, Globe, Images, Link2, Menu, Smartphone, X } from "lucide-react";
+import { ArrowUpRight, Box, Download, Film, Gamepad2, Globe, Images, Link2, Menu, Scissors, Smartphone, User, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { HeartButton } from "./HeartButton";
 import { ContactLinks } from "./ContactLinks";
@@ -12,12 +12,14 @@ export const CODELOVE = "https://codelove.in";
 /** Every other site in the CodeLove network, main site first. */
 export const PLATFORMS = [
   { name: "CodeLove", text: "Free tools, games & guides — the main site", href: CODELOVE, icon: Globe },
+  { name: "Gowtham Portfolio", text: "Gowtham — developer & 3D portfolio", href: "https://gowtham.codelove.in", icon: User },
   { name: "Free 3D Models", text: "Free 3D models to download", href: "https://models.codelove.in", icon: Box },
   { name: "Free 3D Games", text: "Free 3D games in your browser", href: "https://games.codelove.in", icon: Gamepad2 },
   { name: "Insta Downloader", text: "Save Instagram Reels, videos & photos", href: "https://downloader.codelove.in", icon: Download },
   { name: "Link in Bio", text: "One link for all your profiles", href: "https://linkinbio.codelove.in", icon: Link2 },
   { name: "Video to GIF", text: "Turn any clip into a GIF", href: "https://videotogif.codelove.in", icon: Film },
   { name: "Video to Images", text: "Extract frames from videos", href: "https://videotoimages.codelove.in", icon: Images },
+  { name: "Video Cut", text: "Cut & split videos into Shorts in-browser", href: "https://videocut.codelove.in", icon: Scissors },
   { name: "Free Java Games", text: "Old Java phone games, free in your browser", href: "https://javaplay.codelove.in", icon: Smartphone },
 ];
 

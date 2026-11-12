@@ -54,6 +54,7 @@ export default function Channels() {
     <div className="min-h-dvh pt-16">
       <SiteHeader />
 
+      <main>
       <section className="relative overflow-hidden border-b border-line">
         <div className="grid-bg pointer-events-none absolute inset-0" />
         <div className="pointer-events-none absolute -top-32 left-1/2 size-[30rem] -translate-x-1/2 rounded-full bg-accent/15 blur-3xl" />
@@ -77,6 +78,7 @@ export default function Channels() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+        <h2 className="sr-only">Connected YouTube channels</h2>
         <label className="mx-auto flex max-w-md items-center gap-2 rounded-2xl border border-line bg-card px-4 focus-within:border-accent/50">
           <Search className="size-4 text-faint" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search channels…" className="h-11 flex-1 bg-transparent text-sm outline-none placeholder:text-faint" />
@@ -109,6 +111,7 @@ export default function Channels() {
           </Link>
         </div>
       </section>
+      </main>
 
       <SiteFooter />
     </div>

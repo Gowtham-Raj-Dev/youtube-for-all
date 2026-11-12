@@ -319,6 +319,7 @@ export default function Home() {
     <div className="min-h-dvh pt-16">
       <SiteHeader />
 
+      <main>
       {/* ---------- Hero ---------- */}
       <section className="relative overflow-hidden">
         <div className="grid-bg pointer-events-none absolute inset-0" />
@@ -537,7 +538,7 @@ export default function Home() {
           <div className="grad-bg absolute inset-0" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(255,255,255,0.3),transparent_45%),radial-gradient(circle_at_90%_90%,rgba(0,0,0,0.25),transparent_50%)]" />
           <div className="relative">
-            <img src="favicon.svg" alt="" className="mx-auto size-16 rounded-2xl shadow-2xl ring-4 ring-white/20" />
+            <img src="favicon.svg" alt="" width={64} height={64} className="mx-auto size-16 rounded-2xl shadow-2xl ring-4 ring-white/20" />
             <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-on-accent sm:text-5xl">Make it once. Let it post itself.</h2>
             <p className="mx-auto mt-4 max-w-xl text-lg text-on-accent/80">Batch your content on the weekend, and let UTubeFlow handle the daily uploads.</p>
             <Link to="/login" className="mt-9 inline-flex h-13 items-center gap-2 rounded-xl bg-[#04140e] px-7 font-bold text-white shadow-xl transition hover:scale-[1.03]">
@@ -546,6 +547,7 @@ export default function Home() {
           </div>
         </div>
       </section>
+      </main>
 
       <SiteFooter />
     </div>

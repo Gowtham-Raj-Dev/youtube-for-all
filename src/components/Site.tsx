@@ -26,8 +26,8 @@ export const PLATFORMS = [
 export function CodeLoveLogo({ className }: { className?: string }) {
   return (
     <a href={CODELOVE} target="_blank" rel="noreferrer" className={cx("inline-block", className)} aria-label="CodeLove — codelove.in">
-      <img src="brand/codelove-footer-on-dark.png" alt="codelove.in" className="only-dark h-full w-auto" />
-      <img src="brand/codelove-footer-on-light.png" alt="codelove.in" className="only-light h-full w-auto" />
+      <img src="brand/codelove-footer-on-dark.png" alt="codelove.in" width={140} height={28} className="only-dark h-full w-auto" />
+      <img src="brand/codelove-footer-on-light.png" alt="codelove.in" width={140} height={28} className="only-light h-full w-auto" />
     </a>
   );
 }

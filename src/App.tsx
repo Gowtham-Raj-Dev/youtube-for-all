@@ -12,6 +12,7 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import CutPage from "./pages/Cut";
+import MakerPage from "./pages/Maker";
 import ReadyPage from "./pages/Ready";
 import UploadPage from "./pages/Upload";
 import Queue from "./pages/Queue";
@@ -92,6 +93,7 @@ export default function App() {
               <Route element={<Layout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/cut" element={<CutPage />} />
+                <Route path="/maker" element={<MakerPage />} />
                 <Route path="/ready" element={<ReadyPage />} />
                 <Route path="/upload/video" element={<UploadPage key="video" kind="video" />} />
                 <Route path="/upload/short" element={<UploadPage key="short" kind="short" />} />

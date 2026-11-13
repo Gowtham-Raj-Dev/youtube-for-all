@@ -11,12 +11,20 @@ import { VIDEOCUT_URL, type CutClip } from "../components/VideoCutModal";
 
 type Kind = "short" | "video";
 
-const VIDEOCUT_ORIGIN = new URL(VIDEOCUT_URL).origin;
+/** A partner tool shown full-page inside UTubeFlow (VideoCut Studio, Video Maker). */
+export interface StudioPartner {
+  /** Shown while loading and as the frame title. */
+  name: string;
+  /** Full iframe URL. */
+  src: string;
+  /** Message prefix: the tool sends "<prefix>:ready" and "<prefix>:clips". */
+  prefix: string;
+  /** The tool's live origin; local dev servers on ports 30xx are allowed too. */
+  origin: string;
+}
 
-const isAllowedVideoCutOrigin = (origin: string) =>
-  origin === VIDEOCUT_ORIGIN ||
-  origin === "https://videocut.codelove.in" ||
-  /^http:\/\/(localhost|127\.0\.0\.1):30\d\d$/.test(origin);
+const isAllowedOrigin = (partner: StudioPartner, origin: string) =>
+  origin === new URL(partner.src).origin || origin === partner.origin || /^http:\/\/(localhost|127\.0\.0\.1):30\d\d$/.test(origin);
 
 const currentTheme = (): "dark" | "light" => (document.documentElement.dataset.theme === "dark" ? "dark" : "light");
 
@@ -30,9 +38,19 @@ export const takeStudioClips = (): CutClip[] | null => {
 
 /**
  * VideoCut Studio inside UTubeFlow: one tool to split a video into Shorts / parts and edit it.
- * Whatever it sends lands in the upload list — Shorts or Videos, decided by the frame shape.
+ * Whatever it sends lands in Ready to Post — Shorts or Videos, decided by the frame shape.
  */
 export default function CutPage() {
+  return (
+    <StudioFrame
+      partner={{ name: "VideoCut Studio", src: `${VIDEOCUT_URL}/cutter/?embed=utubeflow&kind=auto`, prefix: "videocut", origin: "https://videocut.codelove.in" }}
+    />
+  );
+}
+
+/** A partner tool full-page under the top bar; the videos it sends are saved straight to Ready to Post. */
+export function StudioFrame({ partner }: { partner: StudioPartner }) {
+  const partnerOrigin = new URL(partner.src).origin;
   const [ready, setReady] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const frame = useRef<HTMLIFrameElement>(null);
@@ -96,14 +114,14 @@ export default function CutPage() {
     [navigate, settings.defaults, toast, user.uid],
   );
 
-  const src = `${VIDEOCUT_URL}/cutter/?embed=utubeflow&kind=auto`;
+  const src = partner.src;
 
   const sendInit = useCallback(() => {
     const payload = { type: "utubeflow:init", kind: "auto", theme: currentTheme() };
     try {
-      frame.current?.contentWindow?.postMessage(payload, VIDEOCUT_ORIGIN);
+      frame.current?.contentWindow?.postMessage(payload, partnerOrigin);
     } catch {}
-  }, []);
+  }, [partnerOrigin]);
 
   // Theme toggled while the studio is open: tell it, so it switches too.
   useEffect(() => {
@@ -122,10 +140,10 @@ export default function CutPage() {
 
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
-      if (!isAllowedVideoCutOrigin(e.origin) || e.source !== frame.current?.contentWindow) return;
+      if (!isAllowedOrigin(partner, e.origin) || e.source !== frame.current?.contentWindow) return;
       const data = e.data as { type?: string; kind?: string; clips?: { name?: string; type?: string; blob?: Blob; title?: string; description?: string }[] };
 
-      if (data?.type === "videocut:ready") {
+      if (data?.type === `${partner.prefix}:ready`) {
         setReady(true);
         try {
           frame.current?.contentWindow?.postMessage({ type: "utubeflow:init", kind: "auto", theme: currentTheme() }, e.origin);
@@ -133,7 +151,7 @@ export default function CutPage() {
         return;
       }
 
-      if (data?.type === "videocut:clips" && Array.isArray(data.clips)) {
+      if (data?.type === `${partner.prefix}:clips` && Array.isArray(data.clips)) {
         const parsed: CutClip[] = data.clips
           .filter((c): c is { name: string; type: string; blob: Blob; title: string; description?: string } => c.blob instanceof Blob && typeof c.name === "string")
           .map((c) => ({
@@ -152,7 +170,7 @@ export default function CutPage() {
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [saveToReady]);
+  }, [saveToReady, partner]);
 
   return (
     // Full height under the top bar; on phones the bottom tab bar takes 4rem more.
@@ -161,7 +179,7 @@ export default function CutPage() {
         <div className="absolute inset-0 z-10 grid place-items-center bg-bg-soft p-6">
           <div className="flex flex-col items-center gap-3 text-sm text-muted">
             <Spinner />
-            <span>Opening VideoCut Studio…</span>
+            <span>Opening {partner.name}…</span>
             <button
               onClick={() => {
                 setReady(false);
@@ -192,7 +210,7 @@ export default function CutPage() {
         key={attempt}
         ref={frame}
         src={src}
-        title="VideoCut Studio"
+        title={partner.name}
         onLoad={onLoad}
         allow="fullscreen; clipboard-write"
         className="block h-full w-full border-0 bg-bg-soft"

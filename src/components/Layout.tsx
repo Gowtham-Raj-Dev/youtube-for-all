@@ -18,6 +18,7 @@ import {
   Crown,
   Moon,
   Scissors,
+  Wand2,
   Settings as SettingsIcon,
   Smartphone,
   Sun,
@@ -42,6 +43,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Create",
     items: [
       { to: "/cut", label: "VideoCut", short: "Cut", icon: Scissors },
+      { to: "/maker", label: "Video Maker", short: "Maker", icon: Wand2 },
       { to: "/upload/short", label: "Upload Shorts", short: "Shorts", icon: Smartphone },
       { to: "/upload/video", label: "Upload Videos", short: "Videos", icon: Clapperboard },
     ],
@@ -430,7 +432,7 @@ export default function Layout() {
         </div>
       )}
 
-      <main className={cx("w-full", loc.pathname === "/cut" ? "p-0 max-w-none" : "mx-auto max-w-6xl px-4 py-6 pb-28 sm:px-6 lg:px-10 lg:py-8 lg:pb-12")}>
+      <main className={cx("w-full", loc.pathname === "/cut" || loc.pathname === "/maker" ? "p-0 max-w-none" : "mx-auto max-w-6xl px-4 py-6 pb-28 sm:px-6 lg:px-10 lg:py-8 lg:pb-12")}>
         <Outlet />
       </main>
 

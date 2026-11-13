@@ -9,5 +9,6 @@
 
 ## Companion CodeLove Video Tools
 - [Video Cut (Shorts Cutter)](https://videocut.codelove.in): Cut and split long videos into 9:16 Shorts ready for UTubeFlow.
+- [Free AI Video Maker](https://videomaker.codelove.in): Turn a script into a talking cartoon or text video.
 - [CodeLove](https://codelove.in)
 

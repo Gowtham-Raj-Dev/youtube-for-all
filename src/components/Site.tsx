@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { ArrowUpRight, Box, Download, Film, Gamepad2, Globe, Images, Link2, Menu, Scissors, Smartphone, User, X } from "lucide-react";
+import { ArrowUpRight, Box, Clapperboard, Download, Film, Gamepad2, Globe, Images, Link2, Menu, Scissors, Smartphone, User, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { HeartButton } from "./HeartButton";
 import { ContactLinks } from "./ContactLinks";
@@ -20,6 +20,7 @@ export const PLATFORMS = [
   { name: "Video to GIF", text: "Turn any clip into a GIF", href: "https://videotogif.codelove.in", icon: Film },
   { name: "Video to Images", text: "Extract frames from videos", href: "https://videotoimages.codelove.in", icon: Images },
   { name: "Video Cut", text: "Cut & split videos into Shorts in-browser", href: "https://videocut.codelove.in", icon: Scissors },
+  { name: "Free AI Video Maker", text: "Script to talking cartoon video, with lip sync", href: "https://videomaker.codelove.in", icon: Clapperboard },
   { name: "Free Java Games", text: "Old Java phone games, free in your browser", href: "https://javaplay.codelove.in", icon: Smartphone },
 ];
 

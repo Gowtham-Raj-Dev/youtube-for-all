@@ -25,6 +25,7 @@ function seoBlock(page) {
   return `<main class="seo-copy" style="max-width:720px;margin:0 auto;padding:96px 16px;font-family:Inter,system-ui,sans-serif;color:#9fb3ab">
       <h1>${esc(page.h1)}</h1>
       <p>${esc(page.body)}</p>
+      ${(page.more ?? []).map((s) => `<h2>${esc(s.h2)}</h2>\n      <p>${esc(s.p)}</p>`).join("\n      ")}
       <p>${links} · <a href="https://codelove.in">CodeLove</a> · <a href="https://videocut.codelove.in">Video Cut</a> · <a href="https://gowtham.codelove.in">Gowtham</a></p>
     </main>`;
 }

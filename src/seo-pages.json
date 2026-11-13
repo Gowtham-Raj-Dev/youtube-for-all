@@ -6,43 +6,117 @@
       "title": "Free YouTube Automation — Schedule Shorts | UTubeFlow",
       "description": "UTubeFlow is a 100% free YouTube automation platform. Bulk upload and auto-schedule YouTube videos and Shorts — Autopilot posts on time even with your PC off.",
       "h1": "Free YouTube Automation — Upload once. Post every day.",
-      "body": "UTubeFlow by CodeLove is a free YouTube automation tool for every creator. Bulk upload 100+ YouTube videos and Shorts, pick daily time slots, and Autopilot publishes them on schedule from your own Google account — even when your computer is off. No plans, no payments, no credit card: free YouTube automation using your own free YouTube API quota and Google Drive."
+      "body": "UTubeFlow by CodeLove is a free YouTube automation tool for every creator. Bulk upload 100+ YouTube videos and Shorts, pick daily time slots, and Autopilot publishes them on schedule from your own Google account — even when your computer is off. No plans, no payments, no credit card: free YouTube automation using your own free YouTube API quota and Google Drive.",
+      "more": [
+        {
+          "h2": "How free YouTube automation works in UTubeFlow",
+          "p": "Sign in with Google and connect your YouTube channel. Add your videos and Shorts in one batch — 10 or 100+ at a time — with titles, descriptions and tags. Pick your daily time slots, for example one Short at 9 AM and one at 6 PM. Autopilot then uploads each video on its slot from your own Google account, so your channel keeps posting every day even when your computer is switched off."
+        },
+        {
+          "h2": "Why UTubeFlow is free",
+          "p": "UTubeFlow does not host your videos. They wait in your own Google Drive and are uploaded with your own free YouTube Data API quota, so there are no server costs to pass on to you: no plans, no trials, no credit card. You keep full ownership of your channel and can disconnect it any time."
+        },
+        {
+          "h2": "Built for Shorts creators and long-form channels",
+          "p": "Schedule YouTube Shorts and normal long videos in the same queue. Bulk upload a month of content in one sitting, let the scheduler space it out, and spend your time making the next batch instead of logging in every day to hit publish."
+        }
+      ]
     },
     "/login": {
       "title": "Sign in — Start Free YouTube Automation | UTubeFlow",
       "description": "Sign in with Google and start free YouTube automation in minutes. Bulk upload and schedule YouTube videos and Shorts with UTubeFlow — free forever.",
       "h1": "Sign in to UTubeFlow — free YouTube automation",
-      "body": "Sign in with your Google account to start automating your YouTube channel for free. Bulk upload, schedule Shorts and long videos, and let Autopilot post them on time."
+      "body": "Sign in with your Google account to start automating your YouTube channel for free. Bulk upload, schedule Shorts and long videos, and let Autopilot post them on time.",
+      "more": [
+        {
+          "h2": "How free YouTube automation works in UTubeFlow",
+          "p": "Sign in with Google and connect your YouTube channel. Add your videos and Shorts in one batch — 10 or 100+ at a time — with titles, descriptions and tags. Pick your daily time slots, for example one Short at 9 AM and one at 6 PM. Autopilot then uploads each video on its slot from your own Google account, so your channel keeps posting every day even when your computer is switched off."
+        },
+        {
+          "h2": "What you need to start",
+          "p": "A Google account with a YouTube channel is all you need. UTubeFlow asks only for the YouTube and Google Drive permissions it uses to upload your scheduled videos, and it never stores your password, video files or access tokens."
+        }
+      ]
     },
     "/channels": {
       "title": "Creator Channels on UTubeFlow | YouTube Automation",
       "description": "Discover YouTube creators who post on autopilot with UTubeFlow, the free YouTube automation tool. Visit their channels and subscribe.",
       "h1": "Creator Channels — YouTube creators on UTubeFlow",
-      "body": "Real YouTube channels that schedule their videos and Shorts for free with UTubeFlow. Connect your own channel and it is listed here automatically — free promotion for every creator."
+      "body": "Real YouTube channels that schedule their videos and Shorts for free with UTubeFlow. Connect your own channel and it is listed here automatically — free promotion for every creator.",
+      "more": [
+        {
+          "h2": "Get your channel listed",
+          "p": "Every channel that connects to UTubeFlow and schedules its uploads appears on this page automatically, with a link to the channel. It is a small, free way for new creators to be discovered by other creators who use the same free YouTube automation tool."
+        },
+        {
+          "h2": "How free YouTube automation works in UTubeFlow",
+          "p": "Sign in with Google and connect your YouTube channel. Add your videos and Shorts in one batch — 10 or 100+ at a time — with titles, descriptions and tags. Pick your daily time slots, for example one Short at 9 AM and one at 6 PM. Autopilot then uploads each video on its slot from your own Google account, so your channel keeps posting every day even when your computer is switched off."
+        }
+      ]
     },
     "/privacy": {
       "title": "Privacy Policy | UTubeFlow — Free YouTube Automation",
       "description": "How UTubeFlow, the free YouTube automation tool by CodeLove, handles your data: no video files, tokens or passwords stored. Delete everything any time.",
       "h1": "Privacy Policy — UTubeFlow",
-      "body": "UTubeFlow is a free YouTube automation tool from CodeLove (codelove.in). We never store your video files, Google access tokens, passwords or client secrets. Videos wait in your own Google Drive and upload from your own Google account."
+      "body": "UTubeFlow is a free YouTube automation tool from CodeLove (codelove.in). We never store your video files, Google access tokens, passwords or client secrets. Videos wait in your own Google Drive and upload from your own Google account.",
+      "more": [
+        {
+          "h2": "What UTubeFlow can see",
+          "p": "UTubeFlow uses Google sign-in and the YouTube Data API only to upload and schedule the videos you choose. Your videos stay in your own Google Drive until their time slot. You can revoke access from your Google account settings at any moment, and you can ask us to delete all of your data by emailing support@codelove.in."
+        },
+        {
+          "h2": "YouTube API Services",
+          "p": "UTubeFlow uses YouTube API Services. By using it you also agree to the YouTube Terms of Service and the Google Privacy Policy, which explain how Google handles your data."
+        }
+      ]
     },
     "/terms": {
       "title": "Terms of Service | UTubeFlow — Free YouTube Automation",
       "description": "The terms for using UTubeFlow, the free YouTube automation tool by CodeLove: your content, YouTube API Services, fair use and liability.",
       "h1": "Terms of Service — UTubeFlow",
-      "body": "UTubeFlow is a free YouTube automation tool from CodeLove. Upload only videos you own or have the rights to, follow the YouTube Terms of Service and Community Guidelines, and use the tool fairly. It is free and provided as is."
+      "body": "UTubeFlow is a free YouTube automation tool from CodeLove. Upload only videos you own or have the rights to, follow the YouTube Terms of Service and Community Guidelines, and use the tool fairly. It is free and provided as is.",
+      "more": [
+        {
+          "h2": "Your content and your channel",
+          "p": "You keep all rights to your videos. You are responsible for what you upload and for following YouTube's rules, including copyright, spam and Community Guidelines. Scheduled uploads count against your own YouTube API quota, and YouTube may still review or limit any upload."
+        },
+        {
+          "h2": "Free service, provided as is",
+          "p": "UTubeFlow is free and is offered without warranties. We work to publish every video on time, but uploads can fail because of quota limits, expired Google permissions or YouTube outages, so keep copies of your videos and check your channel."
+        }
+      ]
     },
     "/about": {
       "title": "About UTubeFlow — Free YouTube Automation by CodeLove",
       "description": "Why UTubeFlow exists: a free YouTube automation tool that bulk uploads and schedules videos and Shorts using your own free YouTube API quota and Google Drive.",
       "h1": "About UTubeFlow — free YouTube automation",
-      "body": "UTubeFlow is made by Gowtham at CodeLove. Upload a batch of videos and Shorts once, pick daily time slots, and Autopilot posts them from your own Google account — no plans, no payments, no credit card."
+      "body": "UTubeFlow is made by Gowtham at CodeLove. Upload a batch of videos and Shorts once, pick daily time slots, and Autopilot posts them from your own Google account — no plans, no payments, no credit card.",
+      "more": [
+        {
+          "h2": "How free YouTube automation works in UTubeFlow",
+          "p": "Sign in with Google and connect your YouTube channel. Add your videos and Shorts in one batch — 10 or 100+ at a time — with titles, descriptions and tags. Pick your daily time slots, for example one Short at 9 AM and one at 6 PM. Autopilot then uploads each video on its slot from your own Google account, so your channel keeps posting every day even when your computer is switched off."
+        },
+        {
+          "h2": "Part of the CodeLove network",
+          "p": "UTubeFlow is one of CodeLove's free tools for creators, next to Video Cut, the free AI Video Maker, Video to GIF and Video to Images. All of them are free to use and are built and maintained by Gowtham."
+        }
+      ]
     },
     "/contact": {
       "title": "Contact UTubeFlow — Free YouTube Automation Support",
       "description": "Contact the UTubeFlow team for help with scheduled uploads, bugs, feature ideas, data deletion or copyright and abuse reports. Email support@codelove.in.",
       "h1": "Contact UTubeFlow",
-      "body": "Questions, bugs, feature ideas or a failed upload? Email support@codelove.in with your channel name and the video details."
+      "body": "Questions, bugs, feature ideas or a failed upload? Email support@codelove.in with your channel name and the video details.",
+      "more": [
+        {
+          "h2": "What to include in your email",
+          "p": "For a failed or late upload, send your channel name, the video title and the time it should have posted. Failed uploads are often caused by an expired Google permission or a used-up daily YouTube API quota, so mention any error message you saw in UTubeFlow."
+        },
+        {
+          "h2": "Data deletion and reports",
+          "p": "To delete your UTubeFlow data, or to report copyright problems or abuse, email support@codelove.in from the Google account connected to your channel."
+        }
+      ]
     }
   }
 }

@@ -189,9 +189,11 @@ export default function Queue() {
     if (starting.has(item.id)) return;
     if (!navigator.onLine) return toast("error", "You're offline. Connect to the internet and try again.");
     setStarting((s) => new Set(s).add(item.id));
+    // A clip still held in this tab (e.g. just cut in VideoCut) uploads straight from memory: no Drive permission needed.
+    const mem = getMemoryFile(item.id);
     try {
       await yt.ensureToken();
-      if (item.file?.storage === "drive") await yt.ensureDriveToken();
+      if (!mem && item.file?.storage === "drive") await yt.ensureDriveToken();
     } catch (e) {
       return toast("error", (e as Error).message);
     } finally {
@@ -202,7 +204,6 @@ export default function Queue() {
       });
     }
 
-    const mem = getMemoryFile(item.id);
     run(item, mem)
       .then(() => toast("ok", `“${item.title}” ${item.publishAt && item.publishAt > Date.now() ? `scheduled for ${fmtDateTime(item.publishAt)}` : "uploaded"}.`))
       .catch((e) => toast("error", `“${item.title}”: ${(e as Error).message}`));

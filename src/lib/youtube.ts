@@ -223,6 +223,28 @@ export async function getMyChannel(token: string): Promise<Channel> {
   };
 }
 
+export type ChannelStats = Pick<Channel, "id" | "title" | "handle" | "thumbnail" | "subscribers" | "views" | "videos">;
+
+/** Live public numbers for any channels (not just the signed-in one), 50 ids per request. */
+export async function getChannelsStats(token: string, ids: string[]): Promise<Map<string, ChannelStats>> {
+  const out = new Map<string, ChannelStats>();
+  const unique = [...new Set(ids.filter(Boolean))];
+  for (let i = 0; i < unique.length; i += 50) {
+    const r = await get<{ items?: any[] }>(token, "channels", { part: "snippet,statistics", id: unique.slice(i, i + 50).join(","), maxResults: "50" });
+    for (const c of r.items ?? [])
+      out.set(c.id, {
+        id: c.id,
+        title: c.snippet?.title ?? "",
+        handle: c.snippet?.customUrl ?? "",
+        thumbnail: c.snippet?.thumbnails?.default?.url ?? "",
+        subscribers: c.statistics?.hiddenSubscriberCount ? null : Number(c.statistics?.subscriberCount ?? 0),
+        views: Number(c.statistics?.viewCount ?? 0),
+        videos: Number(c.statistics?.videoCount ?? 0),
+      });
+  }
+  return out;
+}
+
 export type VideoStatus = {
   id: string;
   privacy: Privacy;

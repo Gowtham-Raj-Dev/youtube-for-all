@@ -55,13 +55,13 @@ export default function Login() {
   return (
     <div className="flex h-dvh overflow-hidden">
       {/* Brand panel (large screens) */}
-      <aside className="relative hidden w-[46%] max-w-2xl flex-col justify-between overflow-hidden bg-[#05100c] p-10 text-white lg:flex xl:p-14">
-        <div className="pointer-events-none absolute -top-32 -left-32 size-[30rem] rounded-full bg-[#34d399]/20 blur-3xl" />
-        <div className="pointer-events-none absolute -right-40 -bottom-40 size-[30rem] rounded-full bg-[#059669]/25 blur-3xl" />
+      <aside className="relative hidden w-[46%] max-w-2xl flex-col justify-between overflow-hidden border-r border-line bg-bg-soft p-10 text-fg lg:flex xl:p-14">
+        <div className="pointer-events-none absolute -top-32 -left-32 size-[30rem] rounded-full bg-accent/15 blur-3xl" />
+        <div className="pointer-events-none absolute -right-40 -bottom-40 size-[30rem] rounded-full bg-accent-2/15 blur-3xl" />
         <Link to="/" className="relative flex items-center gap-2.5">
           <img src="favicon.svg" alt="" className="size-9" />
           <span className="text-lg font-extrabold">
-            UTube<span className="bg-gradient-to-r from-[#6ee7b7] to-[#34d399] bg-clip-text text-transparent">Flow</span>
+            UTube<span className="grad-text">Flow</span>
           </span>
         </Link>
 
@@ -69,13 +69,13 @@ export default function Login() {
           <h1 className="text-4xl leading-tight font-extrabold tracking-tight xl:text-5xl">
             Your channel,
             <br />
-            <span className="bg-gradient-to-r from-[#6ee7b7] to-[#10b981] bg-clip-text text-transparent">on autopilot.</span>
+            <span className="grad-text">on autopilot.</span>
           </h1>
-          <p className="mt-4 max-w-md text-white/65">Add your videos once. UTubeFlow publishes them on time, every day — free.</p>
+          <p className="mt-4 max-w-md text-muted">Add your videos once. UTubeFlow publishes them on time, every day — free.</p>
           <ul className="mt-8 space-y-3.5">
             {POINTS.map(({ icon: Icon, text }) => (
-              <li key={text} className="flex items-center gap-3 text-sm text-white/85">
-                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-white/10">
+              <li key={text} className="flex items-center gap-3 text-sm font-medium text-fg">
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-line bg-card text-accent shadow-[var(--shadow-card)]">
                   <Icon className="size-4" />
                 </span>
                 {text}
@@ -84,7 +84,7 @@ export default function Login() {
           </ul>
         </div>
 
-        <p className="relative text-xs text-white/45">Free for every creator · Not affiliated with YouTube or Google</p>
+        <p className="relative text-xs text-faint">Free for every creator · Not affiliated with YouTube or Google</p>
       </aside>
 
       {/* Sign-in */}

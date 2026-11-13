@@ -1,7 +1,28 @@
 @import "tailwindcss";
 
-/* Theme tokens — "Emerald Mint". Dark is the default; light applies via system preference or the toggle. */
+/* Theme tokens — "Clean White". White is the default for everyone; dark applies only via the toggle. */
 :root {
+  --bg: #ffffff;
+  --bg-soft: #f3f6f5;
+  --card: #ffffff;
+  --card-hover: #f2f6f4;
+  --border: #e4eae7;
+  --text: #0b1512;
+  --muted: #52625c;
+  --faint: #84928c;
+  --accent: #059669;
+  --accent-2: #0d9488;
+  --accent-soft: rgba(5, 150, 105, 0.09);
+  --on-accent: #ffffff;
+  --ok: #16a34a;
+  --warn: #d97706;
+  --info: #0284c7;
+  --danger: #e11d48;
+  --shadow-card: 0 1px 2px rgba(11, 21, 18, 0.04), 0 6px 20px -12px rgba(11, 21, 18, 0.12);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
   --bg: #060c0a;
   --bg-soft: #0a1310;
   --card: #0e1915;
@@ -18,47 +39,9 @@
   --warn: #f59e0b;
   --info: #38bdf8;
   --danger: #f43f5e;
+  --shadow-card: none;
   color-scheme: dark;
 }
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --bg: #f3f8f6;
-    --bg-soft: #e9f2ee;
-    --card: #ffffff;
-    --card-hover: #f6faf8;
-    --border: #d9e6e0;
-    --text: #0b1a14;
-    --muted: #4c6158;
-    --faint: #7b8f86;
-    --accent: #059669;
-    --accent-2: #047857;
-    --accent-soft: rgba(5, 150, 105, 0.1);
-    --on-accent: #ffffff;
-    --ok: #16a34a;
-    --info: #0284c7;
-    color-scheme: light;
-  }
-}
-
-:root[data-theme="light"] {
-  --bg: #f3f8f6;
-  --bg-soft: #e9f2ee;
-  --card: #ffffff;
-  --card-hover: #f6faf8;
-  --border: #d9e6e0;
-  --text: #0b1a14;
-  --muted: #4c6158;
-  --faint: #7b8f86;
-  --accent: #059669;
-  --accent-2: #047857;
-  --accent-soft: rgba(5, 150, 105, 0.1);
-  --on-accent: #ffffff;
-  --ok: #16a34a;
-  --info: #0284c7;
-  color-scheme: light;
-}
-
 @theme inline {
   --color-bg: var(--bg);
   --color-bg-soft: var(--bg-soft);
@@ -110,15 +93,10 @@ body {
   color: var(--on-accent);
 }
 
-/* Theme-specific images (e.g. the CodeLove logo): dark is the default theme. */
-.only-light { display: none; }
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) .only-light { display: block; }
-  :root:not([data-theme="dark"]) .only-dark { display: none; }
-}
-:root[data-theme="light"] .only-light { display: block; }
-:root[data-theme="light"] .only-dark { display: none; }
-
+/* Theme-specific images (e.g. the CodeLove logo): white is the default theme. */
+.only-dark { display: none; }
+:root[data-theme="dark"] .only-dark { display: block; }
+:root[data-theme="dark"] .only-light { display: none; }
 html { scroll-behavior: smooth; }
 
 /* Tailwind v4 resets buttons to the default cursor — show a hand on everything clickable. */

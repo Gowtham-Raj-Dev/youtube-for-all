@@ -23,7 +23,7 @@
     <meta name="author" content="Gowtham" />
     <link rel="author" href="https://gowtham.codelove.in" />
     <meta name="application-name" content="UTubeFlow" />
-    <meta name="theme-color" content="#060c0a" />
+    <meta name="theme-color" content="#ffffff" />
     <link rel="canonical" href="https://utubeflow.codelove.in/" />
     <link rel="sitemap" type="application/xml" href="https://utubeflow.codelove.in/sitemap.xml" />
 
@@ -193,18 +193,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
     <script>
-      // Apply the saved theme before first paint to avoid a flash.
+      // White is the default theme; apply a saved "dark" choice before first paint to avoid a flash.
       try {
-        var t = localStorage.getItem("theme");
-        if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+        var t = localStorage.getItem("utf-theme");
+        if (t === "dark") document.documentElement.dataset.theme = t;
       } catch (e) {}
       document.documentElement.classList.add("js");
     </script>
     <style>
       /* Boot splash, shown until React mounts. The SEO copy stays in the HTML for crawlers but is hidden from people. */
-      html { background: #060c0a; }
-      @media (prefers-color-scheme: light) { html:not([data-theme="dark"]) { background: #f3f8f6; } }
-      html[data-theme="light"] { background: #f3f8f6; }
+      html { background: #ffffff; }
+      html[data-theme="dark"] { background: #060c0a; }
       .boot { display: none; }
       .js .boot { position: fixed; inset: 0; display: grid; place-items: center; }
       .boot-mark { position: relative; display: grid; place-items: center; width: 72px; height: 72px; }

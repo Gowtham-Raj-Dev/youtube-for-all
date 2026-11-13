@@ -38,6 +38,14 @@ const isAllowedVideoCutOrigin = (origin: string) => {
   );
 };
 
+export const VIDEOMAKER_URL: string = import.meta.env.VITE_VIDEOMAKER_URL || "https://videomaker.codelove.in";
+
+/** Sites that may open UTubeFlow and send it videos ("Send to UTubeFlow"), with their message prefix. */
+const OPENER_PARTNERS: Array<{ name: string; origin: string; prefix: string }> = [
+  { name: "VideoCut", origin: VIDEOCUT_ORIGIN, prefix: "videocut" },
+  { name: "Video Maker", origin: new URL(VIDEOMAKER_URL).origin, prefix: "videomaker" },
+];
+
 // Clips that arrived on the other upload page (Shorts vs long videos); the right page picks them up on mount.
 let pendingClips: CutClip[] | null = null;
 export const takePendingVideoCutClips = (): CutClip[] | null => {
@@ -56,20 +64,22 @@ export const takePendingVideoCutClips = (): CutClip[] | null => {
  * Returns true while linked.
  */
 export function useVideoCutOpener(kind: "short" | "video", onClips: (clips: CutClip[]) => void, goTo: (kind: "short" | "video") => void) {
-  const [linked, setLinked] = useState(false);
+  /** The partner's name while linked ("VideoCut", "Video Maker"), null otherwise. */
+  const [linked, setLinked] = useState<string | null>(null);
 
   useEffect(() => {
     const opener = window.opener as Window | null;
     if (!opener) return;
 
     const onMessage = (e: MessageEvent) => {
-      if (e.origin !== VIDEOCUT_ORIGIN || e.source !== opener) return;
+      const partner = OPENER_PARTNERS.find((p) => p.origin === e.origin);
+      if (!partner || e.source !== opener) return;
       const data = e.data as { type?: string; kind?: unknown; clips?: IncomingClip[] };
-      if (data?.type === "videocut:linked") {
-        setLinked(true);
-      } else if (data?.type === "videocut:clips" && Array.isArray(data.clips)) {
+      if (data?.type === `${partner.prefix}:linked`) {
+        setLinked(partner.name);
+      } else if (data?.type === `${partner.prefix}:clips` && Array.isArray(data.clips)) {
         const clips = toCutClips(data.clips);
-        opener.postMessage({ type: "utubeflow:received", count: clips.length }, VIDEOCUT_ORIGIN);
+        opener.postMessage({ type: "utubeflow:received", count: clips.length }, partner.origin);
         if (!clips.length) return;
         const target = data.kind === "short" || data.kind === "video" ? data.kind : kind;
         if (target === kind) {
@@ -82,13 +92,16 @@ export function useVideoCutOpener(kind: "short" | "video", onClips: (clips: CutC
     };
 
     window.addEventListener("message", onMessage);
-    try {
-      opener.postMessage({ type: "utubeflow:hello", kind }, VIDEOCUT_ORIGIN);
-    } catch {
-      /* opener gone or navigated elsewhere: nothing to link */
+    // Said to each partner's origin: the browser delivers it only to the one that actually opened us.
+    for (const partner of OPENER_PARTNERS) {
+      try {
+        opener.postMessage({ type: "utubeflow:hello", kind }, partner.origin);
+      } catch {
+        /* opener gone or navigated elsewhere: nothing to link */
+      }
     }
     const closedCheck = window.setInterval(() => {
-      if (opener.closed) setLinked(false);
+      if (opener.closed) setLinked(null);
     }, 2000);
     return () => {
       window.removeEventListener("message", onMessage);
@@ -100,9 +113,7 @@ export function useVideoCutOpener(kind: "short" | "video", onClips: (clips: CutC
 }
 
 const currentTheme = (): "dark" | "light" => {
-  const t = document.documentElement.dataset.theme;
-  if (t === "dark" || t === "light") return t;
-  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
 };
 
 export function VideoCutModal({
@@ -186,13 +197,13 @@ export function VideoCutModal({
 
   if (!open) return null;
 
-  const src = `${VIDEOCUT_URL}/?embed=utubeflow&kind=${kind}`;
+  const src = `${VIDEOCUT_URL}/cutter/?embed=utubeflow&kind=${kind}`;
 
   return (
     <div className="fixed inset-0 z-[70] flex items-stretch justify-center bg-black/70 p-0 backdrop-blur-sm sm:p-4" role="dialog" aria-modal="true" aria-label="Cut with VideoCut">
       <div className="flex w-full max-w-[1400px] flex-col overflow-hidden bg-bg shadow-2xl ring-1 ring-line sm:rounded-2xl">
         <div className="flex items-center gap-3 border-b border-line bg-card px-4 py-3">
-          <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white">
+          <div className="grid size-9 shrink-0 place-items-center rounded-xl grad-bg text-on-accent">
             <Scissors className="size-4.5" />
           </div>
           <div className="min-w-0 flex-1">
@@ -225,7 +236,7 @@ export function VideoCutModal({
                   <div className="flex gap-2 mt-2">
                     <button
                       onClick={() => setAttempt((a) => a + 1)}
-                      className="rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 px-4 py-2 font-medium text-white transition hover:opacity-90"
+                      className="grad-bg rounded-xl px-4 py-2 font-medium text-on-accent transition hover:opacity-90"
                     >
                       Try again
                     </button>

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { deleteDoc, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import { useUser } from "./auth";
@@ -62,13 +62,18 @@ export function YouTubeProvider({ children }: { children: ReactNode }) {
   const syncChannel = useCallback(
     (c: Channel | null) => {
       const pub = doc(db, "channels", user.uid);
-      if (c) setDoc(pub, { id: c.id, title: c.title, handle: c.handle, thumbnail: c.thumbnail, subscribers: c.subscribers, videos: c.videos, updatedAt: serverTimestamp() }).catch(() => {});
+      // Firestore rejects `undefined` values (an older cached channel may miss a field), which used to
+      // drop the users/{uid} write silently — the channel showed on /channels but not in Admin.
+      const s = c
+        ? { id: c.id, title: c.title ?? "", handle: c.handle ?? "", thumbnail: c.thumbnail ?? "", subscribers: c.subscribers ?? null, views: c.views ?? 0, videos: c.videos ?? 0 }
+        : null;
+      if (s) setDoc(pub, { id: s.id, title: s.title, handle: s.handle, thumbnail: s.thumbnail, subscribers: s.subscribers, videos: s.videos, updatedAt: serverTimestamp() }).catch(() => {});
       else deleteDoc(pub).catch(() => {});
       return setDoc(
         doc(db, "users", user.uid),
-        { channel: c ? { id: c.id, title: c.title, handle: c.handle, thumbnail: c.thumbnail, subscribers: c.subscribers, views: c.views, videos: c.videos } : null },
+        { channel: s, email: user.email ?? "", name: user.displayName ?? "", photo: user.photoURL ?? "" },
         { merge: true },
-      ).catch(() => {});
+      ).catch((e) => console.warn("Could not save channel summary", e));
     },
     [user.uid],
   );
@@ -142,6 +147,26 @@ export function YouTubeProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [clientId, saveChannel, tick]);
+
+  // Keep subscribers / views / videos in sync with YouTube: the numbers saved at "Connect" time go
+  // stale as the channel grows. Refresh whenever a valid token exists — on load, when the tab is
+  // focused again, and every 10 minutes — which also updates the admin list and /channels.
+  const lastSync = useRef(0);
+  useEffect(() => {
+    if (!connected) return;
+    const sync = () => {
+      if (document.visibilityState !== "visible" || Date.now() - lastSync.current < 5 * 60_000) return;
+      lastSync.current = Date.now();
+      refreshChannel();
+    };
+    sync();
+    const id = setInterval(sync, 10 * 60_000);
+    document.addEventListener("visibilitychange", sync);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", sync);
+    };
+  }, [connected, refreshChannel]);
 
   return (
     <YouTubeContext.Provider

@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import { useUser } from "./auth";
+import { DEMO } from "./demo";
 
 import type { AutopilotConfig } from "./autopilot";
 
@@ -44,6 +45,9 @@ export const DEFAULT_SETTINGS: Settings = {
   setupDone: [],
 };
 
+/** Dev-server demo mode only (see demo.ts); a no-op in production. */
+const withDemo = (s: Settings): Settings => (DEMO?.settings ? { ...s, ...(DEMO.settings as Partial<Settings>) } : s);
+
 type SettingsState = {
   settings: Settings;
   loading: boolean;
@@ -54,7 +58,7 @@ const SettingsContext = createContext<SettingsState | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const user = useUser();
-  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<Settings>(() => withDemo(DEFAULT_SETTINGS));
   const [loading, setLoading] = useState(true);
   const ref = useMemo(() => doc(db, "users", user.uid), [user.uid]);
 
@@ -64,11 +68,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         ref,
         (snap) => {
           const data = (snap.data()?.settings ?? {}) as Partial<Settings>;
-          setSettings({
-            ...DEFAULT_SETTINGS,
-            ...data,
-            defaults: { ...DEFAULT_SETTINGS.defaults, ...(data.defaults ?? {}) },
-          });
+          setSettings(
+            withDemo({
+              ...DEFAULT_SETTINGS,
+              ...data,
+              defaults: { ...DEFAULT_SETTINGS.defaults, ...(data.defaults ?? {}) },
+            }),
+          );
           setLoading(false);
         },
         () => setLoading(false),

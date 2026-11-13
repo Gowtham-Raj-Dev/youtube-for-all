@@ -11,6 +11,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { db } from "./firebase";
+import { settle } from "./demo";
 import type { Privacy } from "./settings";
 
 export type ItemKind = "video" | "short";
@@ -81,15 +82,15 @@ export function useItems(uid: string) {
 
 export function saveItem(uid: string, item: Item) {
   const { id, ...data } = item;
-  return setDoc(doc(itemsCol(uid), id), data);
+  return settle(setDoc(doc(itemsCol(uid), id), data));
 }
 
 export function patchItem(uid: string, id: string, patch: Partial<Item>) {
-  return updateDoc(doc(itemsCol(uid), id), { ...patch, updatedAt: Date.now() });
+  return settle(updateDoc(doc(itemsCol(uid), id), { ...patch, updatedAt: Date.now() }));
 }
 
 export function removeItem(uid: string, id: string) {
-  return deleteDoc(doc(itemsCol(uid), id));
+  return settle(deleteDoc(doc(itemsCol(uid), id)));
 }
 
 export const STATUS_LABEL: Record<ItemStatus, string> = {

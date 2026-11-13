@@ -5,8 +5,9 @@ import type { User } from "firebase/auth";
 import { collection, deleteDoc, doc, getCountFromServer, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, Timestamp, where } from "firebase/firestore";
 import { db } from "./firebase";
 
-export const ADMIN_EMAIL = "codelove.in@gmail.com";
-export const isAdminUser = (u: Pick<User, "email" | "emailVerified"> | null | undefined) => !!u && u.email === ADMIN_EMAIL && u.emailVerified;
+/** Accounts that see the Admin panel. Keep in sync with isAdmin() in firestore.rules. */
+export const ADMIN_EMAILS = ["codelove.in@gmail.com", "raj685810@gmail.com"];
+export const isAdminUser = (u: Pick<User, "email" | "emailVerified"> | null | undefined) => !!u && !!u.email && ADMIN_EMAILS.includes(u.email) && u.emailVerified;
 
 /** Someone counts as online if their tab checked in within this window. */
 export const ONLINE_MS = 150_000;

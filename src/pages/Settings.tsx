@@ -656,6 +656,8 @@ function DataSection() {
       const snap = await getDocs(collection(db, "users", user.uid, "items"));
       for (const d of snap.docs) await deleteDoc(d.ref);
       await deleteDoc(doc(db, "users", user.uid));
+      // The public copies too: otherwise the channel stays on /channels and in the creator count.
+      await Promise.all(["channels", "members", "presence"].map((c) => deleteDoc(doc(db, c, user.uid)).catch(() => {})));
       try {
         localStorage.clear();
       } catch {

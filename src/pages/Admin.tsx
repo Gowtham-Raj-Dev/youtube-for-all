@@ -1,6 +1,6 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Navigate } from "react-router";
-import { collection, collectionGroup, onSnapshot, Timestamp } from "firebase/firestore";
+import { collection, collectionGroup, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, Timestamp } from "firebase/firestore";
 import {
   Activity,
   AlertTriangle,
@@ -10,11 +10,15 @@ import {
   CheckCircle2,
   ChevronDown,
   Clapperboard,
+  Copy,
   Crown,
   Download,
   ListVideo,
+  Mail,
+  RefreshCw,
   Search,
   Smartphone,
+  Trash2,
   Trophy,
   Users,
   Youtube,
@@ -24,7 +28,10 @@ import { useUser } from "../lib/auth";
 import { isAdminUser, useOnline } from "../lib/community";
 import { STATUS_LABEL, type Item } from "../lib/items";
 import { fmtCount, fmtRelative } from "../lib/schedule";
-import { Card, cx, Segmented, Spinner, StatusBadge } from "../components/ui";
+import { useYouTube } from "../lib/youtube-context";
+import { useSettings } from "../lib/settings";
+import { getChannelsStats, getStoredToken, type ChannelStats } from "../lib/youtube";
+import { Card, cx, Segmented, Spinner, StatusBadge, useToast } from "../components/ui";
 
 type UserDoc = {
   uid: string;
@@ -36,6 +43,8 @@ type UserDoc = {
   hasClientId: boolean;
   lastLogin: number | null;
   joined: number | null;
+  /** Only a public channels/{uid} doc is left: the user ran "Delete all my data" (or never got a profile saved). */
+  orphan?: boolean;
 };
 
 type AdminItem = Item & { uid: string };
@@ -90,6 +99,26 @@ function useAdminData() {
     [],
   );
 
+  // The public channels/{uid} directory: a channel can exist there while users/{uid} missed it
+  // (an older client's write failed), so Admin merges both and never hides a connected creator.
+  const [pubChannels, setPubChannels] = useState<Map<string, NonNullable<UserDoc["channel"]>> | null>(null);
+  useEffect(
+    () =>
+      onSnapshot(
+        collection(db, "channels"),
+        (snap) => {
+          const m = new Map<string, NonNullable<UserDoc["channel"]>>();
+          for (const d of snap.docs) {
+            const x = d.data();
+            if (x.id) m.set(d.id, { id: x.id, title: x.title ?? "", handle: x.handle ?? "", thumbnail: x.thumbnail ?? "", subscribers: x.subscribers ?? null, videos: x.videos ?? 0 });
+          }
+          setPubChannels(m);
+        },
+        () => setPubChannels(new Map()),
+      ),
+    [],
+  );
+
   useEffect(
     () =>
       onSnapshot(
@@ -100,7 +129,21 @@ function useAdminData() {
     [],
   );
 
-  return { users, items, error };
+  const merged = useMemo(() => {
+    if (!users || !pubChannels) return null;
+    const known = new Set(users.map((u) => u.uid));
+    const out = users.map((u) => {
+      const pub = pubChannels.get(u.uid);
+      return u.channel?.id || !pub ? u : { ...u, channel: pub };
+    });
+    // Creators with a public channel but no users/{uid} profile at all.
+    for (const [uid, ch] of pubChannels)
+      if (!known.has(uid))
+        out.push({ uid, email: "", name: ch.title, photo: ch.thumbnail ?? "", channel: ch, autopilot: false, hasClientId: false, lastLogin: null, joined: null, orphan: true });
+    return out;
+  }, [users, pubChannels]);
+
+  return { users: merged, items, error };
 }
 
 // ---------- Pieces ----------
@@ -242,6 +285,43 @@ function Leaderboard({ rows }: { rows: Row[] }) {
   );
 }
 
+function CopyButton({ text, label, className }: { text: string; label: string; className?: string }) {
+  const toast = useToast();
+  return (
+    <button
+      onClick={() => navigator.clipboard.writeText(text).then(() => toast("ok", "Copied"), () => toast("error", "Could not copy"))}
+      className={cx("flex h-9 items-center justify-center gap-1.5 rounded-xl border border-line bg-bg-soft px-3 text-xs font-medium text-muted transition hover:text-fg", className)}
+    >
+      <Copy className="size-3.5" /> {label}
+    </button>
+  );
+}
+
+/** Takes a leftover channel off /channels (the owner asked to delete their data). */
+function RemoveChannelButton({ uid }: { uid: string }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      disabled={busy}
+      onClick={async () => {
+        if (!confirm("Remove this channel from the public /channels page?")) return;
+        setBusy(true);
+        try {
+          await deleteDoc(doc(db, "channels", uid));
+          toast("ok", "Removed from /channels");
+        } catch (e) {
+          toast("error", (e as Error).message);
+          setBusy(false);
+        }
+      }}
+      className="mt-3 flex h-9 w-full items-center justify-center gap-1.5 rounded-xl border border-danger/30 bg-danger/10 text-xs font-semibold text-danger transition hover:bg-danger/15 disabled:opacity-60"
+    >
+      <Trash2 className="size-3.5" /> {busy ? "Removing…" : "Remove from /channels"}
+    </button>
+  );
+}
+
 function UserDetail({ row }: { row: Row }) {
   const items = [...row.items].sort((a, b) => (b.uploadedAt ?? b.updatedAt) - (a.uploadedAt ?? a.updatedAt));
   return (
@@ -276,10 +356,36 @@ function UserDetail({ row }: { row: Row }) {
               </div>
             )}
           </div>
+          <div className="rounded-2xl border border-line bg-card p-4">
+            <div className="text-[10px] font-semibold tracking-wider text-faint uppercase">Contact</div>
+            {row.email ? (
+              <>
+                <div className="mt-2 text-sm font-semibold break-all select-all">{row.email}</div>
+                <div className="mt-3 flex gap-2">
+                  <a
+                    href={`mailto:${row.email}?subject=${encodeURIComponent("UTubeFlow")}`}
+                    className="grad-bg flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl text-xs font-semibold text-on-accent"
+                  >
+                    <Mail className="size-3.5" /> Send email
+                  </a>
+                  <CopyButton text={row.email} label="Copy" />
+                </div>
+              </>
+            ) : row.orphan ? (
+              <>
+                <p className="mt-2 text-sm text-muted">
+                  This creator has no UTubeFlow profile — most likely they used <b className="text-fg">Delete all my data</b>, which removed their email, settings and
+                  uploads. Only the public channel card was left behind. If they sign in again, everything shows here.
+                </p>
+                <RemoveChannelButton uid={row.uid} />
+              </>
+            ) : (
+              <p className="mt-2 text-sm text-muted">No email saved yet — it appears the next time this user opens UTubeFlow.</p>
+            )}
+          </div>
           <div className="rounded-2xl border border-line bg-card p-4 text-sm">
             <dl className="space-y-2">
               {[
-                ["Email", row.email || "—"],
                 ["Joined", row.joined ? new Date(row.joined).toLocaleDateString() : "—"],
                 ["Last seen", row.online ? "Online now" : row.lastLogin ? fmtRelative(row.lastLogin) : "—"],
                 ["Autopilot", row.autopilot ? "Set up" : "Not set up"],
@@ -368,6 +474,51 @@ function AdminDashboard() {
   const [sort, setSort] = useState<Sort>("success");
   const [openRow, setOpenRow] = useState<string | null>(null);
 
+  // Channel numbers saved at "Connect" time go stale. With the owner's YouTube token we read every
+  // connected channel's live public numbers, show them here and write them back for /channels.
+  const yt = useYouTube();
+  const { settings } = useSettings();
+  const toast = useToast();
+  const [live, setLive] = useState<Map<string, ChannelStats>>(new Map());
+  const [syncing, setSyncing] = useState(false);
+  const [syncedAt, setSyncedAt] = useState<number | null>(null);
+  const syncChannels = useCallback(
+    async (interactive: boolean) => {
+      if (!users) return;
+      const withChannel = users.filter((u) => u.channel?.id);
+      if (!withChannel.length) return;
+      setSyncing(true);
+      try {
+        const token = interactive ? await yt.ensureToken() : getStoredToken(settings.youtubeClientId, "yt");
+        if (!token) return;
+        const stats = await getChannelsStats(token, withChannel.map((u) => u.channel!.id));
+        setLive(stats);
+        setSyncedAt(Date.now());
+        let changed = 0;
+        for (const u of withChannel) {
+          const s = stats.get(u.channel!.id);
+          if (!s || (s.subscribers === (u.channel!.subscribers ?? null) && s.videos === u.channel!.videos && s.views === u.channel!.views)) continue;
+          changed++;
+          // Needs the admin rules in firestore.rules (npm run deploy:rules); until then only this page shows live numbers.
+          setDoc(doc(db, "channels", u.uid), { id: s.id, title: s.title, handle: s.handle, thumbnail: s.thumbnail, subscribers: s.subscribers, videos: s.videos, updatedAt: serverTimestamp() }).catch(() => {});
+          setDoc(doc(db, "users", u.uid), { channel: s }, { merge: true }).catch(() => {});
+        }
+        if (interactive) toast("ok", changed ? `Synced ${stats.size} channels — ${changed} updated` : `All ${stats.size} channels are up to date`);
+      } catch (e) {
+        if (interactive) toast("error", (e as Error).message);
+      } finally {
+        setSyncing(false);
+      }
+    },
+    [users, yt, settings.youtubeClientId, toast],
+  );
+  const autoSynced = useRef(false);
+  useEffect(() => {
+    if (autoSynced.current || !users || !yt.connected) return;
+    autoSynced.current = true;
+    syncChannels(false);
+  }, [users, yt.connected, syncChannels]);
+
   const rows: Row[] = useMemo(() => {
     if (!users || !items) return [];
     const onlineIds = new Set(online.map((p) => p.uid));
@@ -379,6 +530,7 @@ function AdminDashboard() {
       const last = Math.max(0, ...list.map((i) => i.uploadedAt ?? i.updatedAt ?? 0));
       return {
         ...u,
+        channel: u.channel ? { ...u.channel, ...(live.get(u.channel.id) ?? {}) } : null,
         online: onlineIds.has(u.uid),
         items: list,
         total: list.length,
@@ -392,7 +544,7 @@ function AdminDashboard() {
         lastActivity: last || null,
       };
     });
-  }, [users, items, online]);
+  }, [users, items, online, live]);
 
   const shown = useMemo(() => {
     const s = q.trim().toLowerCase();
@@ -503,6 +655,15 @@ function AdminDashboard() {
               <option value="recent">Recently active</option>
               <option value="joined">Newest</option>
             </select>
+            <button
+              onClick={() => syncChannels(true)}
+              disabled={syncing}
+              className="flex h-9 items-center gap-1.5 rounded-xl border border-line bg-bg-soft px-3 text-sm text-muted transition hover:text-fg disabled:opacity-60"
+              title={syncedAt ? `Live subscriber counts synced ${fmtRelative(syncedAt)}` : "Read live subscriber counts from YouTube for every connected channel"}
+            >
+              <RefreshCw className={cx("size-4", syncing && "animate-spin")} /> {syncing ? "Syncing…" : syncedAt ? "Synced" : "Sync channels"}
+            </button>
+            <CopyButton text={shown.map((r) => r.email).filter(Boolean).join(", ")} label="Emails" className="text-sm" />
             <button onClick={() => exportCsv(shown)} className="flex h-9 items-center gap-1.5 rounded-xl border border-line bg-bg-soft px-3 text-sm text-muted transition hover:text-fg" title="Download as CSV">
               <Download className="size-4" /> CSV
             </button>
@@ -558,7 +719,11 @@ function AdminDashboard() {
                             {r.name || r.email.split("@")[0] || "Unknown"}
                             {r.autopilot && <Bot className="size-3.5 shrink-0 text-accent" aria-label="Autopilot set up" />}
                           </span>
-                          <span className="block truncate text-xs text-muted">{r.email}</span>
+                          {r.orphan ? (
+                            <span className="mt-0.5 inline-flex rounded-md bg-warn/10 px-1.5 py-0.5 text-[10px] font-semibold text-warn">Account data deleted</span>
+                          ) : (
+                            <span className="block truncate text-xs text-muted">{r.email}</span>
+                          )}
                           <span className="mt-1 flex gap-2 text-[11px] lg:hidden">
                             <span className="text-ok">{r.success} ok</span>
                             {r.queued > 0 && <span className="text-warn">{r.queued} queued</span>}

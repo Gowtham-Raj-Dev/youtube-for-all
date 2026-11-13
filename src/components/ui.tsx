@@ -43,7 +43,7 @@ export function Button({
 }
 
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cx("rounded-2xl border border-line bg-card", className)}>{children}</div>;
+  return <div className={cx("rounded-2xl border border-line bg-card shadow-[var(--shadow-card)]", className)}>{children}</div>;
 }
 
 export function CardHeader({ title, subtitle, action, icon }: { title: ReactNode; subtitle?: ReactNode; action?: ReactNode; icon?: ReactNode }) {

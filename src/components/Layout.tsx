@@ -79,12 +79,13 @@ export function Logo({ className }: { className?: string }) {
 
 export function ThemeToggle() {
   const [theme, setTheme] = useState<string>(() => document.documentElement.dataset.theme ?? "");
-  const isDark = theme ? theme === "dark" : !window.matchMedia("(prefers-color-scheme: light)").matches;
+  // White is the default; dark only when the user picked it.
+  const isDark = theme === "dark";
   const flip = () => {
     const next = isDark ? "light" : "dark";
     document.documentElement.dataset.theme = next;
     try {
-      localStorage.setItem("theme", next);
+      localStorage.setItem("utf-theme", next);
     } catch {
       /* ignore */
     }
@@ -338,7 +339,7 @@ export default function Layout() {
                     to === "/admin"
                       ? cx("border border-amber-400/30 bg-gradient-to-r from-amber-400/15 to-fuchsia-500/10 text-amber-400", isActive ? "from-amber-400/25 to-fuchsia-500/20 text-fg" : "hover:from-amber-400/25")
                       : isActive
-                        ? "bg-accent-soft text-fg"
+                        ? "bg-accent-soft font-semibold text-accent"
                         : "text-muted hover:bg-card-hover hover:text-fg",
                   )
                 }
@@ -389,9 +390,9 @@ export default function Layout() {
   );
 
   return (
-    <div className="min-h-dvh lg:pl-68">
+    <div className="min-h-dvh bg-bg-soft lg:pl-68">
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-68 flex-col border-r border-line bg-bg-soft p-4 lg:flex">{sidebar}</aside>
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-68 flex-col border-r border-line bg-card p-4 lg:flex">{sidebar}</aside>
 
       {/* Top bar (fixed on every screen size) */}
       <header className="glass sticky top-0 z-30 border-b border-line">
@@ -420,7 +421,7 @@ export default function Layout() {
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <div className="absolute inset-y-0 right-0 flex w-[min(20rem,85vw)] flex-col bg-bg-soft p-4">
+          <div className="absolute inset-y-0 right-0 flex w-[min(20rem,85vw)] flex-col bg-card p-4">
             <button onClick={() => setOpen(false)} className="absolute top-4 right-4 grid size-9 place-items-center rounded-xl text-muted">
               <X className="size-5" />
             </button>

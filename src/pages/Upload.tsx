@@ -359,8 +359,8 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
 
       {videoCutLinked && (
         <div className="mb-6">
-          <Alert tone="ok" title="Connected to VideoCut">
-            Keep this tab open. Clips you send from VideoCut with <b>Send to UTubeFlow</b> land in this upload list.
+          <Alert tone="ok" title={`Connected to ${videoCutLinked}`}>
+            Keep this tab open. Videos you send from {videoCutLinked} with <b>Send to UTubeFlow</b> land in this upload list.
           </Alert>
         </div>
       )}
@@ -402,7 +402,7 @@ export default function UploadPage({ kind }: { kind: ItemKind }) {
             ) : null}
             {entries.length === 0 ? (
               <div className="mx-4 mb-4 flex flex-col items-start gap-3 rounded-xl border border-line bg-bg-soft p-3.5 sm:flex-row sm:items-center">
-                <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 text-white">
+                <div className="grid size-9 shrink-0 place-items-center rounded-lg grad-bg text-on-accent">
                   <Scissors className="size-4" />
                 </div>
                 <div className="min-w-0 flex-1 text-sm">

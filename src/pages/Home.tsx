@@ -356,6 +356,7 @@ const FAQ: [string, string][] = [
   ["Is UTubeFlow really free?", "Yes. No plans, no payments. It runs on your own free Google account: the YouTube API quota, 15 GB of Google Drive and Apps Script are free from Google."],
   ["Does my computer need to stay on?", "No. Videos wait in your Google Drive, and a script in your own Google account uploads them on time. Keep the tab open only while files are being copied to Drive."],
   ["Can I schedule YouTube Shorts for free?", "Yes. UTubeFlow checks the shape and length of each Short, adds #Shorts and schedules it into your daily time slots for free."],
+  ["Is there a free YouTube scheduler to bulk upload videos?", "Yes. UTubeFlow is a free YouTube scheduler: bulk upload many videos at once, pick daily time slots and let YouTube auto upload happen on time, with no paid plan."],
   ["How many videos can I schedule?", "As many as fit in your Drive. YouTube's free quota allows about 6 uploads a day, so 100 videos at 3 a day go out over about a month — automatically."],
   ["Is my channel safe?", "You approve access yourself with Google. UTubeFlow can only see the Drive files it creates, and never stores your videos or passwords. You can remove access any time."],
   ["Why my own Google Cloud project?", "Each project gets its own free daily YouTube quota. With your own, you never share limits with anyone and only you control your channel."],

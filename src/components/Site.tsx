@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { ArrowUpRight, Box, Clapperboard, Download, Film, Gamepad2, Globe, Images, Link2, Menu, Scissors, Smartphone, User, X } from "lucide-react";
+import { ArrowUpRight, Box, Clapperboard, Download, Film, Gamepad2, Globe, Images, Link2, Menu, RefreshCw, Scissors, Smartphone, Sparkles, User, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { HeartButton } from "./HeartButton";
 import { ContactLinks } from "./ContactLinks";
@@ -22,6 +22,9 @@ export const PLATFORMS = [
   { name: "Video Cut", text: "Cut & split videos into Shorts in-browser", href: "https://videocut.codelove.in", icon: Scissors },
   { name: "Free AI Video Maker", text: "Script to talking cartoon video, with lip sync", href: "https://videomaker.codelove.in", icon: Clapperboard },
   { name: "Free Java Games", text: "Old Java phone games, free in your browser", href: "https://javaplay.codelove.in", icon: Smartphone },
+  { name: "VOLTARC Arcade", text: "3,000+ instant HTML5 & 3D browser games", href: "https://voltarc.codelove.in", icon: Gamepad2 },
+  { name: "Satisfying Video Maker", text: "Physics simulations & ASMR video studio", href: "https://satisfying-video-maker.codelove.in", icon: Sparkles },
+  { name: "ILoveConvert", text: "Free online file, image & developer tools", href: "https://iloveconvert.codelove.in", icon: RefreshCw },
 ];
 
 export function CodeLoveLogo({ className }: { className?: string }) {
